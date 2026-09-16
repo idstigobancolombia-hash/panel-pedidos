@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de Pedidos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" id="favicon" href="data:,">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="top">
+    <h1>Panel de Pedidos</h1>
+    <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
+      <div class="clock mono">Hora local: <span id="reloj">--:--:--</span></div>
+      <div class="sesion">
+        <span class="quien" id="sesionNombre">—</span>
+        <span class="rol-badge" id="sesionRol">—</span>
+        <button class="btn ghost small" id="btnSalir">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="banner-alerta" id="bannerSobrecarga"></div>
+
+  <div class="resumen" id="resumen">
+    <div class="stat total"><div class="num" id="statTotal">0</div><div class="lbl">Pedidos abiertos en total</div></div>
+    <div class="stat hoy"><div class="num" id="statHoy">0</div><div class="lbl">Pedidos para el día de hoy</div></div>
+    <div class="stat proximos"><div class="num" id="statProximos">0</div><div class="lbl">Programados para próximos días</div></div>
+  </div>
+
+  <div class="clientes-rapido" id="clientesRapido"></div>
+
+  <!-- ADMIN: USUARIOS -->
+  <section class="block closed" id="blockAdmin" style="display:none;">
+    <div class="block-head" data-toggle="blockAdmin">
+      <h2>👤 Usuarios (administrador)</h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="block-body admin-panel">
+      <div class="field-row">
+        <div class="field"><label for="nuUsuario">Usuario</label><input type="text" id="nuUsuario" placeholder="ej. jperez"></div>
+        <div class="field"><label for="nuNombre">Nombre a mostrar</label><input type="text" id="nuNombre" placeholder="Juan Pérez"></div>
+        <div class="field"><label for="nuClave">Contraseña</label><input type="password" id="nuClave"></div>
+        <div class="field" style="flex: 0 0 140px;">
+          <label for="nuRol">Rol</label>
+          <select id="nuRol">
+            <option value="usuario">Usuario</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </div>
+        <div class="field" style="flex: 0 0 auto;">
+          <button class="btn primary" id="btnAgregarUsuario">Agregar usuario</button>
+        </div>
+      </div>
+      <table id="tablaUsuarios">
+        <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th></th></tr></thead>
+        <tbody id="cuerpoUsuarios"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- NOTIFICACIONES DEL NAVEGADOR -->
+  <section class="block closed" id="blockNotif">
+    <div class="block-head" data-toggle="blockNotif"><h2>Notificaciones del navegador (opcionales)</h2><span class="chev">▾</span></div>
+    <div class="block-body">
+      <div class="status-line"><span class="dot" id="notifDot"></span><span id="notifStatusTxt">Comprobando permiso del navegador…</span></div>
+      <div class="field-row">
+        <button class="btn primary" id="btnPedirPermiso">Activar notificaciones del navegador</button>
+        <button class="btn" id="btnProbarNotif">Probar si el navegador las permite</button>
+      </div>
+      <div class="status-line" style="margin-top:16px;">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color: var(--text);">
+          <input type="checkbox" id="chkSonido"> Reproducir sonido de campana en cada aviso (en este dispositivo)
+        </label>
+      </div>
+      <div class="field-row"><button class="btn" id="btnProbarSonido">Probar sonido</button></div>
+      <p class="helptext">Los avisos que <strong>nunca fallan</strong> son tres: la ventana grande dentro de esta página, el sonido de campana y el parpadeo del título/ícono de la pestaña — cada persona los ve en su propia pantalla apenas su navegador detecta el pedido, sin depender de nadie más.</p>
+    </div>
+  </section>
+
+  <!-- CANAL EXTERNO -->
+  <section class="block closed" id="blockEnvio">
+    <div class="block-head" data-toggle="blockEnvio"><h2>Canal de aviso externo (compartido para todo el equipo)</h2><span class="chev">▾</span></div>
+    <div class="block-body">
+      <div class="radio-row" style="display:flex; gap:18px; margin-top:14px; font-size:13.5px; flex-wrap:wrap;">
+        <label><input type="radio" name="canal" value="web"> Solo Web (pantalla)</label>
+        <label><input type="radio" name="canal" value="telegram"> Web + Telegram</label>
+        <label><input type="radio" name="canal" value="discord"> Web + Discord</label>
+      </div>
+      <div class="field-row" id="camposDiscord">
+        <div class="field" style="flex:1 1 100%;"><label for="discordWebhook">URL del Webhook de Discord</label><input type="text" id="discordWebhook" placeholder="https://discord.com/api/webhooks/..."></div>
+      </div>
+      <div class="field-row" id="camposTelegram">
+        <div class="field"><label for="telegramToken">Token del bot de Telegram</label><input type="text" id="telegramToken" placeholder="123456789:AA..."></div>
+        <div class="field"><label for="telegramChatId">Chat ID</label><input type="text" id="telegramChatId" placeholder="-100123456789"></div>
+      </div>
+      <div class="field-row">
+        <button class="btn primary" id="btnGuardarConfig">Guardar configuración</button>
+        <button class="btn" id="btnProbarEnvio">Enviar mensaje de prueba</button>
+      </div>
+      <p class="helptext" id="notaCanalRol"></p>
+      <p class="helptext">
+        <strong>Discord:</strong> en el canal, <em>Ajustes → Integraciones → Webhooks → Nuevo webhook</em>, copia la URL.<br>
+        <strong>Telegram:</strong> crea un bot con <code>@BotFather</code> (<code>/newbot</code>) y copia el token; para el Chat ID, agrega el bot al chat y visita <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> tras escribir algo.
+      </p>
+    </div>
+  </section>
+
+  <!-- NUEVO PEDIDO -->
+  <section class="block" id="blockNuevo">
+    <div class="block-head" data-toggle="blockNuevo"><h2>Registrar pedido</h2><span class="chev">▾</span></div>
+    <div class="block-body">
+      <form id="formPedido">
+        <div class="field-row">
+          <div class="field" style="flex:2 1 220px;"><label for="pTitulo">Pedido / referencia</label><input type="text" id="pTitulo" required></div>
+          <div class="field"><label for="pCliente">Cliente (opcional)</label><input type="text" id="pCliente"></div>
+        </div>
+
+        <div class="field">
+          <label>Tipo de caso</label>
+          <div class="cat-tabs" id="catTabsForm">
+            <button type="button" data-cat="wan_lan" class="active">WAN / LAN</button>
+            <button type="button" data-cat="ids">Investigación IDS</button>
+            <button type="button" data-cat="no_identificada">No identificada</button>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field" style="flex:0 0 170px;"><label for="pFechaDia">Fecha</label><input type="date" id="pFechaDia" required></div>
+          <div class="field" style="flex:0 0 auto;">
+            <label>Hora inicio (militar)</label>
+            <div class="hora-select">
+              <select id="pInicioH"></select><span class="sep">:</span><select id="pInicioM"></select>
+            </div>
+          </div>
+          <div class="field" style="flex:0 0 auto;">
+            <label>Hora fin / límite (militar)</label>
+            <div class="hora-select">
+              <select id="pFinH"></select><span class="sep">:</span><select id="pFinM"></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field" style="flex:2 1 260px;"><label for="pNotas">Notas (opcional)</label><textarea id="pNotas"></textarea></div>
+        </div>
+        <div class="field-row"><button type="submit" class="btn primary">Agregar a la lista</button></div>
+      </form>
+    </div>
+  </section>
+
+  <div class="list-title">
+    <span>PENDIENTES</span>
+    <div class="cat-tabs" id="catTabsFiltro">
+      <button type="button" data-cat="todas" class="active">Todas</button>
+      <button type="button" data-cat="wan_lan">WAN/LAN</button>
+      <button type="button" data-cat="ids">IDS</button>
+      <button type="button" data-cat="no_identificada">No identificada</button>
+    </div>
+  </div>
+  <table class="ticker" id="tablaPendientes"></table>
+
+  <section class="block closed" id="blockDone">
+    <div class="block-head" data-toggle="blockDone"><h2>Documentados</h2><span class="chev">▾</span></div>
+    <div class="block-body"><table class="ticker" id="tablaDocumentados"></table></div>
+  </section>
+
+  <footer class="note">
+    Los pedidos, usuarios y configuración del canal externo viven en Firebase Firestore y se sincronizan al instante para todos los que tengan el panel abierto — si cierras el navegador, nada se pierde: solo se pausa tu propio semáforo hasta que vuelvas a entrar. El sonido y el interruptor de campana son ajustes de este dispositivo, no se comparten.
+  </footer>
+</div>
+
+<!-- MODAL SEMÁFORO -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal-box" id="modalBox">
+    <span class="modal-eta" id="modalEta">Aviso</span>
+    <h3 id="modalTitulo">Pedido</h3>
+    <div class="modal-cliente" id="modalCliente"></div>
+    <div class="modal-notas" id="modalNotas" style="display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn primary" id="modalBtnDoc">Marcar documentado</button>
+      <button class="btn" id="modalBtnPosponer">Posponer 10 min</button>
+      <button class="btn" id="modalBtnResched">Reprogramar</button>
+      <button class="btn" id="modalBtnEnviar">Enviar aviso ahora</button>
+      <button class="btn ghost" id="modalBtnCerrar">Cerrar</button>
+    </div>
+    <div class="modal-resched" id="modalResched" style="display:none;">
+      <div class="modal-resched-title">Nueva hora límite:</div>
+      <div class="quick-btns">
+        <button class="btn small" data-min="15">+15 min</button>
+        <button class="btn small" data-min="30">+30 min</button>
+        <button class="btn small" data-min="60">+1 hora</button>
+        <button class="btn small" data-min="120">+2 horas</button>
+      </div>
+      <div class="field-row" style="margin-top:10px;">
+        <div class="field"><label for="modalReschedInput">O elige fecha y hora</label><input type="datetime-local" id="modalReschedInput"></div>
+        <div class="field" style="flex:0 0 auto;"><button class="btn primary small" id="modalReschedApply">Aplicar</button></div>
+      </div>
+    </div>
+    <div class="modal-queue" id="modalQueue"></div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script src="firebase-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // ---------- sesión ----------
+  const usuario = sessionStorage.getItem("pp_usuario");
+  const nombre = sessionStorage.getItem("pp_nombre");
+  const rol = sessionStorage.getItem("pp_rol");
+  if (!usuario){ window.location.href = "index.html"; return; }
+
+  document.getElementById("sesionNombre").textContent = nombre || usuario;
+  document.getElementById("sesionRol").textContent = rol === "admin" ? "Administrador" : "Usuario";
+  document.getElementById("btnSalir").addEventListener("click", ()=>{
+    sessionStorage.clear();
+    window.location.href = "index.html";
+  });
+  if (rol === "admin"){
+    document.getElementById("blockAdmin").style.display = "";
+    document.getElementById("notaCanalRol").textContent = "Como administrador, los cambios que guardes aquí aplican para todo el equipo.";
+  } else {
+    document.getElementById("notaCanalRol").textContent = "Solo un administrador puede cambiar este canal; aquí puedes ver cómo está configurado.";
+    document.getElementById("btnGuardarConfig").style.display = "none";
+  }
+
+  // ---------- Firebase ----------
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  (async ()=>{ if (!auth.currentUser) await auth.signInAnonymously().catch(()=>{}); })();
+
+  const CHECK_INTERVAL_MS = 20000;
+  const UMBRAL_VERDE_MIN = 30, UMBRAL_AMARILLO_MIN = 15, UMBRAL_ROJO_MIN = 5;
+  const UMBRAL_SOBRECARGA = 7;
+  const CATEGORIAS = { wan_lan: "WAN / LAN", ids: "Investigación IDS", no_identificada: "No identificada" };
+
+  let pedidos = [];          // caché local, alimentada por onSnapshot
+  let configCanal = { canal: "web", discordWebhook:"", telegramToken:"", telegramChatId:"" };
+  let filtroCategoria = "todas";
+  let colaModal = [];
+  let modalAbierto = null;
+  const avisadoLocalSesion = new Set(); // dedup de modal/sonido por pestaña: `${id}-${nivel}`
+  const horasSobrecargaAvisadas = new Set();
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function toast(msg, tipo){
+    const stack = document.getElementById("toastStack");
+    const el = document.createElement("div");
+    el.className = "toast" + (tipo ? " " + tipo : "");
+    el.textContent = msg;
+    stack.appendChild(el);
+    setTimeout(()=> el.remove(), 5000);
+  }
+  function fmtFecha(iso){
+    const d = new Date(iso);
+    return { fecha: d.toLocaleDateString('es', { day:'2-digit', month:'short' }), hora: d.toLocaleTimeString('es', { hour:'2-digit', minute:'2-digit', hour12:false }) };
+  }
+  function mismoDia(iso, dateB){
+    const a = new Date(iso);
+    return a.getFullYear()===dateB.getFullYear() && a.getMonth()===dateB.getMonth() && a.getDate()===dateB.getDate();
+  }
+  function estadoTexto(p){
+    if (p.estado === 'documentado') return { label: 'Documentado', cls: 'done' };
+    const minR = (new Date(p.horaFin).getTime() - Date.now()) / 60000;
+    const minInicio = (new Date(p.horaInicio).getTime() - Date.now()) / 60000;
+    if (minR <= 0) return { label: 'Vencido', cls: 'venc' };
+    if (minR <= UMBRAL_ROJO_MIN) return { label: 'Urgente', cls: 'venc' };
+    if (minR <= UMBRAL_AMARILLO_MIN) return { label: 'Advertencia', cls: 'amarillo' };
+    if (minR <= UMBRAL_VERDE_MIN) return { label: 'Preparación', cls: 'verde' };
+    if (minInicio > 0) return { label: 'Agendado', cls: 'pend' };
+    return { label: 'En curso', cls: 'inicio' };
+  }
+
+  // ---------- reloj ----------
+  function tickReloj(){ document.getElementById("reloj").textContent = new Date().toLocaleTimeString('es', { hour12:false }); }
+  tickReloj(); setInterval(tickReloj, 1000);
+
+  // ---------- bloques colapsables ----------
+  document.querySelectorAll("[data-toggle]").forEach(h=>{
+    h.addEventListener("click", ()=> document.getElementById(h.dataset.toggle).classList.toggle("closed"));
+  });
+
+  // ---------- selects de hora militar (10 en 10) ----------
+  function llenarHoras(sel){
+    for (let h=0; h<24; h++){
+      const op = document.createElement("option");
+      op.value = String(h).padStart(2,"0");
+      op.textContent = String(h).padStart(2,"0");
+      sel.appendChild(op);
+    }
+  }
+  function llenarMinutos(sel){
+    for (let m=0; m<60; m+=10){
+      const op = document.createElement("option");
+      op.value = String(m).padStart(2,"0");
+      op.textContent = String(m).padStart(2,"0");
+      sel.appendChild(op);
+    }
+  }
+  ["pInicioH","pFinH"].forEach(id=> llenarHoras(document.getElementById(id)));
+  ["pInicioM","pFinM"].forEach(id=> llenarMinutos(document.getElementById(id)));
+  document.getElementById("pFechaDia").value = new Date().toISOString().slice(0,10);
+  document.getElementById("pFinH").value = "01"; // valor inicial de ejemplo distinto de 00
+
+  function construirFechaHora(diaStr, hh, mm, diaBase){
+    const d = new Date(diaBase + "T" + hh + ":" + mm + ":00");
+    return d;
+  }
+
+  // ---------- notificaciones del navegador ----------
+  const notifDot = document.getElementById("notifDot");
+  const notifStatusTxt = document.getElementById("notifStatusTxt");
+  function actualizarEstadoNotif(){
+    if (!("Notification" in window)){ notifStatusTxt.textContent = "Este navegador no soporta notificaciones. El resto de avisos funciona igual."; notifDot.classList.remove("on"); return; }
+    const p = Notification.permission;
+    if (p === "granted"){ notifStatusTxt.textContent = "Notificaciones del navegador permitidas."; notifDot.classList.add("on"); }
+    else if (p === "denied"){ notifStatusTxt.textContent = "Bloqueadas por el navegador. No afecta al resto de avisos."; notifDot.classList.remove("on"); }
+    else { notifStatusTxt.textContent = "No activadas. El resto de avisos funciona igual."; notifDot.classList.remove("on"); }
+  }
+  actualizarEstadoNotif();
+  document.getElementById("btnPedirPermiso").addEventListener("click", ()=>{
+    if (!("Notification" in window)){ toast("No soportado. Usa el aviso en pantalla.", "err"); return; }
+    try{
+      const r = Notification.requestPermission(actualizarEstadoNotif);
+      if (r && typeof r.then === "function") r.then(actualizarEstadoNotif).catch(actualizarEstadoNotif);
+    }catch(e){ toast("El navegador bloqueó la solicitud.", "err"); actualizarEstadoNotif(); }
+  });
+  document.getElementById("btnProbarNotif").addEventListener("click", ()=>{
+    const ok = lanzarNotifNav("Prueba", "Notificación opcional del navegador.");
+    toast(ok ? "Notificación enviada." : "No disponible ahora, pero el resto de avisos funciona.", ok ? "ok" : "err");
+  });
+  function lanzarNotifNav(t,c){ if (!("Notification" in window) || Notification.permission!=="granted") return false; try{ new Notification(t,{body:c}); return true; }catch(e){ return false; } }
+
+  // ---------- sonido (preferencia local del dispositivo) ----------
+  let sonidoActivo = localStorage.getItem("pp_sonido") !== "0";
+  document.getElementById("chkSonido").checked = sonidoActivo;
+  document.getElementById("chkSonido").addEventListener("change", (e)=>{
+    sonidoActivo = e.target.checked;
+    localStorage.setItem("pp_sonido", sonidoActivo ? "1" : "0");
+  });
+  let audioCtx = null;
+  function obtenerAudioCtx(){
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    if (!audioCtx) audioCtx = new AC();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+  document.addEventListener("click", function desbloquear(){ obtenerAudioCtx(); document.removeEventListener("click", desbloquear); }, { once:true });
+  function tocarTono(ctx,t0,freq,dur,vol){
+    const osc=ctx.createOscillator(), gain=ctx.createGain();
+    osc.type="sine"; osc.frequency.value=freq;
+    gain.gain.setValueAtTime(0.0001,t0);
+    gain.gain.exponentialRampToValueAtTime(vol,t0+0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(t0); osc.stop(t0+dur+0.05);
+  }
+  function sonarCampana(nivel){
+    if (!sonidoActivo) return;
+    const ctx = obtenerAudioCtx(); if (!ctx) return;
+    const ahora = ctx.currentTime;
+    const rep = (nivel==="rojo"||nivel==="fin") ? 3 : (nivel==="amarillo" ? 2 : 1);
+    for (let i=0;i<rep;i++){ const t0=ahora+i*0.4; tocarTono(ctx,t0,880,0.6,0.22); tocarTono(ctx,t0,1318.5,0.6,0.13); }
+  }
+  document.getElementById("btnProbarSonido").addEventListener("click", ()=>{
+    if (!sonidoActivo){ toast("Activa la casilla de sonido.", "err"); return; }
+    sonarCampana("verde");
+  });
+
+  // ---------- aviso visible en cualquier pestaña ----------
+  const tituloOriginal = document.title;
+  const favicon = document.getElementById("favicon");
+  const faviconOriginal = favicon.href;
+  let flashInt = null, flashOn = false;
+  function dibujarFavicon(color){
+    const c = document.createElement("canvas"); c.width=32; c.height=32;
+    const ctx = c.getContext("2d");
+    ctx.beginPath(); ctx.arc(16,16,14,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+    return c.toDataURL("image/png");
+  }
+  function activarAvisoPestana(nivel, msg){
+    const colores = { inicio:"#7FB6E8", verde:"#56C27D", amarillo:"#E8C93D", rojo:"#E8695D", fin:"#E8695D" };
+    favicon.href = dibujarFavicon(colores[nivel] || "#E8695D");
+    if (flashInt) clearInterval(flashInt);
+    flashOn = false;
+    flashInt = setInterval(()=>{ flashOn=!flashOn; document.title = flashOn ? msg : tituloOriginal; }, 1000);
+  }
+  function detenerAvisoPestana(){
+    if (flashInt){ clearInterval(flashInt); flashInt=null; }
+    document.title = tituloOriginal; favicon.href = faviconOriginal;
+  }
+  document.addEventListener("visibilitychange", ()=>{ if (!document.hidden) detenerAvisoPestana(); });
+
+  // ---------- config canal externo (compartida) ----------
+  const campoDiscord = document.getElementById("camposDiscord");
+  const campoTelegram = document.getElementById("camposTelegram");
+  function actualizarVisibilidadCampos(){
+    const c = document.querySelector('input[name="canal"]:checked')?.value || "web";
+    campoDiscord.style.display = c==="discord" ? "flex":"none";
+    campoTelegram.style.display = c==="telegram" ? "flex":"none";
+  }
+  document.querySelectorAll('input[name="canal"]').forEach(r=> r.addEventListener("change", actualizarVisibilidadCampos));
+
+  db.collection("config").doc("global").onSnapshot(snap=>{
+    if (snap.exists){
+      configCanal = Object.assign({ canal:"web", discordWebhook:"", telegramToken:"", telegramChatId:"" }, snap.data());
+    }
+    document.querySelectorAll('input[name="canal"]').forEach(r=> r.checked = (r.value === configCanal.canal));
+    document.getElementById("discordWebhook").value = configCanal.discordWebhook || "";
+    document.getElementById("telegramToken").value = configCanal.telegramToken || "";
+    document.getElementById("telegramChatId").value = configCanal.telegramChatId || "";
+    actualizarVisibilidadCampos();
+  });
+
+  document.getElementById("btnGuardarConfig").addEventListener("click", async ()=>{
+    const nuevo = {
+      canal: document.querySelector('input[name="canal"]:checked')?.value || "web",
+      discordWebhook: document.getElementById("discordWebhook").value.trim(),
+      telegramToken: document.getElementById("telegramToken").value.trim(),
+      telegramChatId: document.getElementById("telegramChatId").value.trim()
+    };
+    try{ await db.collection("config").doc("global").set(nuevo); toast("Configuración guardada para todo el equipo.", "ok"); }
+    catch(e){ toast("No se pudo guardar: " + e.message, "err"); }
+  });
+
+  document.getElementById("btnProbarEnvio").addEventListener("click", ()=>{
+    if (configCanal.canal === "web"){ toast("Canal en \"Solo Web\": nada que probar.", "err"); return; }
+    enviarMensajeExterno("Mensaje de prueba desde el Panel de Pedidos ✅").then(ok=>{ if (ok) toast("Mensaje de prueba enviado.", "ok"); });
+  });
+
+  async function enviarADiscord(texto){
+    if (!configCanal.discordWebhook) return false;
+    try{
+      const res = await fetch(configCanal.discordWebhook, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({content: texto}) });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return true;
+    }catch(e){ toast("Error Discord: " + e.message, "err"); return false; }
+  }
+  async function enviarATelegram(texto){
+    if (!configCanal.telegramToken || !configCanal.telegramChatId) return false;
+    try{
+      const res = await fetch("https://api.telegram.org/bot" + configCanal.telegramToken + "/sendMessage", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({chat_id: configCanal.telegramChatId, text: texto}) });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.description || "respuesta no válida");
+      return true;
+    }catch(e){ toast("Error Telegram: " + e.message, "err"); return false; }
+  }
+  async function enviarMensajeExterno(texto){
+    if (configCanal.canal === "discord") return await enviarADiscord(texto);
+    if (configCanal.canal === "telegram") return await enviarATelegram(texto);
+    return false;
+  }
+  function textoAviso(p, etiqueta){
+    const ini = fmtFecha(p.horaInicio), fin = fmtFecha(p.horaFin);
+    let t = (etiqueta ? etiqueta + " " : "") + "Pedido: " + p.titulo + " [" + (CATEGORIAS[p.categoria]||p.categoria) + "]";
+    if (p.cliente) t += " — " + p.cliente;
+    t += "\nVentana: " + ini.hora + " a " + fin.hora + " (" + fin.fecha + ")";
+    if (p.notas) t += "\nNotas: " + p.notas;
+    return t;
+  }
+
+  // ---------- admin: usuarios ----------
+  async function hashTexto(texto){
+    const enc = new TextEncoder().encode(texto);
+    const buf = await crypto.subtle.digest("SHA-256", enc);
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  }
+  if (rol === "admin"){
+    db.collection("usuarios").onSnapshot(snap=>{
+      const cuerpo = document.getElementById("cuerpoUsuarios");
+      cuerpo.innerHTML = "";
+      snap.forEach(doc=>{
+        const u = doc.data();
+        const tr = document.createElement("tr");
+        const tdBtn = document.createElement("td");
+        if (doc.id !== usuario){
+          const btn = document.createElement("button");
+          btn.className = "btn danger small";
+          btn.textContent = "Eliminar";
+          btn.addEventListener("click", async ()=>{
+            if (!confirm("¿Eliminar al usuario \"" + doc.id + "\"?")) return;
+            await db.collection("usuarios").doc(doc.id).delete();
+          });
+          tdBtn.appendChild(btn);
+        }
+        tr.innerHTML = "<td>" + doc.id + "</td><td></td><td></td>";
+        tr.children[1].textContent = u.nombre || "";
+        tr.children[2].textContent = u.rol === "admin" ? "Administrador" : "Usuario";
+        tr.appendChild(tdBtn);
+        cuerpo.appendChild(tr);
+      });
+    });
+
+    document.getElementById("btnAgregarUsuario").addEventListener("click", async ()=>{
+      const uNuevo = document.getElementById("nuUsuario").value.trim().toLowerCase();
+      const nNuevo = document.getElementById("nuNombre").value.trim();
+      const cNuevo = document.getElementById("nuClave").value;
+      const rNuevo = document.getElementById("nuRol").value;
+      if (!uNuevo || !cNuevo){ toast("Usuario y contraseña son obligatorios.", "err"); return; }
+      try{
+        const hash = await hashTexto(cNuevo);
+        await db.collection("usuarios").doc(uNuevo).set({ nombre: nNuevo || uNuevo, passwordHash: hash, rol: rNuevo, creadoEn: firebase.firestore.FieldValue.serverTimestamp() });
+        document.getElementById("nuUsuario").value = "";
+        document.getElementById("nuNombre").value = "";
+        document.getElementById("nuClave").value = "";
+        toast("Usuario agregado.", "ok");
+      }catch(e){ toast("No se pudo agregar: " + e.message, "err"); }
+    });
+  }
+
+  // ---------- categorías: tabs del formulario y del filtro ----------
+  let categoriaForm = "wan_lan";
+  document.querySelectorAll("#catTabsForm button").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll("#catTabsForm button").forEach(b=> b.classList.remove("active"));
+      btn.classList.add("active");
+      categoriaForm = btn.dataset.cat;
+    });
+  });
+  document.querySelectorAll("#catTabsFiltro button").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll("#catTabsFiltro button").forEach(b=> b.classList.remove("active"));
+      btn.classList.add("active");
+      filtroCategoria = btn.dataset.cat;
+      render();
+    });
+  });
+
+  // ---------- nuevo pedido ----------
+  document.getElementById("formPedido").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const titulo = document.getElementById("pTitulo").value.trim();
+    const cliente = document.getElementById("pCliente").value.trim();
+    const notas = document.getElementById("pNotas").value.trim();
+    const dia = document.getElementById("pFechaDia").value;
+    const iH = document.getElementById("pInicioH").value, iM = document.getElementById("pInicioM").value;
+    const fH = document.getElementById("pFinH").value, fM = document.getElementById("pFinM").value;
+
+    if (!titulo || !dia){ toast("Completa el pedido y la fecha.", "err"); return; }
+
+    let inicio = construirFechaHora(dia, iH, iM, dia);
+    let fin = construirFechaHora(dia, fH, fM, dia);
+    if (fin.getTime() <= inicio.getTime()) fin = new Date(fin.getTime() + 24*60*60*1000); // ventana cruza medianoche
+
+    try{
+      await db.collection("pedidos").add({
+        titulo, cliente, notas, categoria: categoriaForm,
+        horaInicio: inicio.toISOString(), horaFin: fin.toISOString(),
+        estado: "pendiente",
+        alertInicio:false, alertVerde:false, alertAmarillo:false, alertRojo:false, alertFin:false,
+        creadoPor: usuario, creadoEn: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      e.target.reset();
+      document.getElementById("pFechaDia").value = new Date().toISOString().slice(0,10);
+      toast("Pedido agregado.", "ok");
+    }catch(err){ toast("No se pudo guardar: " + err.message, "err"); }
+  });
+
+  // ---------- mutaciones de pedidos ----------
+  async function marcarDocumentado(id){
+    try{ await db.collection("pedidos").doc(id).update({ estado: "documentado" }); }
+    catch(e){ toast("No se pudo actualizar: " + e.message, "err"); }
+  }
+  async function eliminarPedido(id){
+    try{ await db.collection("pedidos").doc(id).delete(); }
+    catch(e){ toast("No se pudo eliminar: " + e.message, "err"); }
+  }
+  async function reprogramarPedido(id, timestampMs){
+    try{
+      await db.collection("pedidos").doc(id).update({
+        horaFin: new Date(timestampMs).toISOString(),
+        alertVerde:false, alertAmarillo:false, alertRojo:false, alertFin:false
+      });
+      toast("Pedido reprogramado.", "ok");
+    }catch(e){ toast("No se pudo reprogramar: " + e.message, "err"); }
+  }
+  async function posponer10min(id){
+    const p = pedidos.find(x=>x.id===id);
+    if (!p) return;
+    await reprogramarPedido(id, new Date(p.horaFin).getTime() + 10*60000);
+  }
+
+  // ---------- render ----------
+  function filaPedido(p){
+    const ini = fmtFecha(p.horaInicio), fin = fmtFecha(p.horaFin);
+    const est = estadoTexto(p);
+    const tr = document.createElement("tr");
+    tr.className = "row";
+    tr.innerHTML =
+      '<td class="when mono"><div class="date">' + fin.fecha + '</div><div class="time">' + ini.hora + '–' + fin.hora + '</div></td>' +
+      '<td class="info"><div class="titulo"></div><div class="cat"></div>' +
+        (p.cliente ? '<div class="cliente"></div>' : '') + (p.notas ? '<div class="notas"></div>' : '') + '</td>' +
+      '<td class="state"><span class="badge ' + est.cls + '">' + est.label + '</span></td>' +
+      '<td class="actions"></td>';
+    tr.querySelector(".titulo").textContent = p.titulo;
+    tr.querySelector(".cat").textContent = CATEGORIAS[p.categoria] || p.categoria;
+    if (p.cliente) tr.querySelector(".cliente").textContent = p.cliente;
+    if (p.notas) tr.querySelector(".notas").textContent = p.notas;
+
+    const actions = tr.querySelector(".actions");
+    if (p.estado !== "documentado"){
+      const btnDoc = document.createElement("button");
+      btnDoc.className = "btn small"; btnDoc.textContent = "Marcar documentado";
+      btnDoc.addEventListener("click", ()=> marcarDocumentado(p.id));
+      actions.appendChild(btnDoc);
+
+      const btnPos = document.createElement("button");
+      btnPos.className = "btn small"; btnPos.textContent = "Posponer 10 min";
+      btnPos.addEventListener("click", ()=> posponer10min(p.id));
+      actions.appendChild(btnPos);
+
+      const btnEnv = document.createElement("button");
+      btnEnv.className = "btn small"; btnEnv.textContent = "Enviar ahora";
+      btnEnv.addEventListener("click", async ()=>{
+        if (configCanal.canal === "web"){ toast("Canal en \"Solo Web\".", "err"); return; }
+        btnEnv.disabled = true;
+        const ok = await enviarMensajeExterno(textoAviso(p));
+        if (ok) toast("Aviso enviado.", "ok");
+        btnEnv.disabled = false;
+      });
+      actions.appendChild(btnEnv);
+    }
+    const btnDel = document.createElement("button");
+    btnDel.className = "btn ghost small"; btnDel.textContent = "Eliminar";
+    btnDel.addEventListener("click", ()=> eliminarPedido(p.id));
+    actions.appendChild(btnDel);
+    return tr;
+  }
+
+  function render(){
+    const todosPendientes = pedidos.filter(p=>p.estado!=="documentado").sort((a,b)=> new Date(a.horaFin)-new Date(b.horaFin));
+    const pendientes = filtroCategoria==="todas" ? todosPendientes : todosPendientes.filter(p=>p.categoria===filtroCategoria);
+    const documentados = pedidos.filter(p=>p.estado==="documentado").sort((a,b)=> new Date(b.horaFin)-new Date(a.horaFin));
+
+    const tPend = document.getElementById("tablaPendientes");
+    tPend.innerHTML = "";
+    if (pendientes.length===0){
+      const tr=document.createElement("tr"); tr.innerHTML='<td class="empty">No hay pedidos pendientes en esta categoría.</td>'; tPend.appendChild(tr);
+    } else pendientes.forEach(p=> tPend.appendChild(filaPedido(p)));
+
+    const tDone = document.getElementById("tablaDocumentados");
+    tDone.innerHTML = "";
+    if (documentados.length===0){
+      const tr=document.createElement("tr"); tr.innerHTML='<td class="empty">Todavía no hay pedidos documentados.</td>'; tDone.appendChild(tr);
+    } else documentados.forEach(p=> tDone.appendChild(filaPedido(p)));
+
+    renderResumen(todosPendientes);
+    renderClientesRapido(todosPendientes);
+    renderBannerSobrecarga(todosPendientes);
+  }
+
+  function renderResumen(pendientes){
+    const hoy = new Date();
+    const paraHoy = pendientes.filter(p=> mismoDia(p.horaFin, hoy));
+    document.getElementById("statTotal").textContent = pendientes.length;
+    document.getElementById("statHoy").textContent = paraHoy.length;
+    document.getElementById("statProximos").textContent = pendientes.length - paraHoy.length;
+  }
+
+  const PRIORIDAD_CLS = { venc:0, amarillo:1, verde:2, inicio:3, pend:4 };
+  function renderClientesRapido(pendientes){
+    const cont = document.getElementById("clientesRapido");
+    cont.innerHTML = "";
+    if (pendientes.length===0){ cont.innerHTML = '<span class="empty">Sin pedidos pendientes.</span>'; return; }
+    const items = pendientes.map(p=>({p, est: estadoTexto(p)})).sort((a,b)=> (PRIORIDAD_CLS[a.est.cls]-PRIORIDAD_CLS[b.est.cls]) || (new Date(a.p.horaFin)-new Date(b.p.horaFin)));
+    items.forEach(({p,est})=>{
+      const chip = document.createElement("span"); chip.className="chip";
+      const dot = document.createElement("span"); dot.className="dot-mini "+(est.cls==="inicio"?"pend":est.cls); chip.appendChild(dot);
+      const txt = document.createElement("span"); txt.textContent = p.cliente ? p.cliente : p.titulo; chip.appendChild(txt);
+      cont.appendChild(chip);
+    });
+  }
+
+  function renderBannerSobrecarga(pendientes){
+    const banner = document.getElementById("bannerSobrecarga");
+    const porHora = {};
+    pendientes.forEach(p=>{ const h = new Date(p.horaFin).getHours(); porHora[h] = (porHora[h]||0) + 1; });
+    const horasSaturadas = Object.keys(porHora).filter(h=> porHora[h] > UMBRAL_SOBRECARGA);
+    if (horasSaturadas.length === 0){ banner.classList.remove("show"); banner.textContent=""; return; }
+    const detalle = horasSaturadas.map(h=> String(h).padStart(2,"0") + ":00 (" + porHora[h] + " pedidos)").join(" · ");
+    banner.textContent = "⚠ Hay muchas alertas pendientes para la(s) hora(s) " + detalle + " — deberían cerrar algunos casos.";
+    banner.classList.add("show");
+    horasSaturadas.forEach(h=>{
+      if (!horasSobrecargaAvisadas.has(h)){
+        horasSobrecargaAvisadas.add(h);
+        sonarCampana("rojo");
+        activarAvisoPestana("rojo", "⚠ Sobrecarga a las " + String(h).padStart(2,"0") + ":00");
+      }
+    });
+    Object.keys(porHora).forEach(h=>{ if (porHora[h] <= UMBRAL_SOBRECARGA) horasSobrecargaAvisadas.delete(h); });
+  }
+
+  // ---------- modal semáforo ----------
+  const modalBackdrop = document.getElementById("modalBackdrop");
+  const modalBox = document.getElementById("modalBox");
+  const modalEta = document.getElementById("modalEta");
+  const modalTitulo = document.getElementById("modalTitulo");
+  const modalCliente = document.getElementById("modalCliente");
+  const modalNotas = document.getElementById("modalNotas");
+  const modalQueue = document.getElementById("modalQueue");
+
+  const NIVELES = {
+    inicio:  { clase:"nivel-inicio",  etiqueta:"🔵 Ventana iniciada" },
+    verde:   { clase:"nivel-verde",   etiqueta:"🟢 30 min antes — preparación" },
+    amarillo:{ clase:"nivel-amarillo",etiqueta:"🟡 15 min antes — advertencia" },
+    rojo:    { clase:"nivel-rojo",    etiqueta:"🔴 5 min antes — entrega urgente" },
+    fin:     { clase:"nivel-fin",     etiqueta:"🔴 Hora límite alcanzada" }
+  };
+
+  function encolarModal(pedidoId, nivel){
+    colaModal.push({ pedidoId, nivel });
+    if (!modalAbierto) mostrarSiguienteModal();
+  }
+  function mostrarSiguienteModal(){
+    if (colaModal.length===0){ modalAbierto=null; modalBackdrop.classList.remove("show"); detenerAvisoPestana(); return; }
+    const item = colaModal.shift();
+    const p = pedidos.find(x=>x.id===item.pedidoId);
+    if (!p || p.estado==="documentado"){ mostrarSiguienteModal(); return; }
+    modalAbierto = item;
+    const def = NIVELES[item.nivel];
+    modalBox.className = "modal-box " + def.clase;
+    modalEta.textContent = def.etiqueta;
+    modalTitulo.textContent = p.titulo + " · " + (CATEGORIAS[p.categoria]||"");
+    modalCliente.textContent = p.cliente ? "Cliente: " + p.cliente : "";
+    if (p.notas){ modalNotas.style.display="block"; modalNotas.textContent=p.notas; } else modalNotas.style.display="none";
+    modalQueue.textContent = colaModal.length>0 ? ("Hay " + colaModal.length + " aviso(s) más en cola.") : "";
+    document.getElementById("modalBtnEnviar").style.display = (configCanal.canal==="web") ? "none":"inline-block";
+    document.getElementById("modalResched").style.display = "none";
+    document.getElementById("modalReschedInput").value = "";
+    modalBackdrop.classList.add("show");
+  }
+  document.getElementById("modalBtnCerrar").addEventListener("click", mostrarSiguienteModal);
+  document.getElementById("modalBtnDoc").addEventListener("click", ()=>{ if (modalAbierto) marcarDocumentado(modalAbierto.pedidoId); mostrarSiguienteModal(); });
+  document.getElementById("modalBtnPosponer").addEventListener("click", ()=>{ if (modalAbierto) posponer10min(modalAbierto.pedidoId); mostrarSiguienteModal(); });
+  document.getElementById("modalBtnResched").addEventListener("click", ()=>{ const el=document.getElementById("modalResched"); el.style.display = el.style.display==="none"?"block":"none"; });
+  document.querySelectorAll("#modalResched [data-min]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{ if (!modalAbierto) return; reprogramarPedido(modalAbierto.pedidoId, Date.now()+parseInt(btn.dataset.min,10)*60000); mostrarSiguienteModal(); });
+  });
+  document.getElementById("modalReschedApply").addEventListener("click", ()=>{
+    if (!modalAbierto) return;
+    const val = document.getElementById("modalReschedInput").value;
+    if (!val){ toast("Elige fecha y hora.", "err"); return; }
+    reprogramarPedido(modalAbierto.pedidoId, new Date(val).getTime());
+    mostrarSiguienteModal();
+  });
+  document.getElementById("modalBtnEnviar").addEventListener("click", async ()=>{
+    if (!modalAbierto) return;
+    const p = pedidos.find(x=>x.id===modalAbierto.pedidoId); if (!p) return;
+    const ok = await enviarMensajeExterno(textoAviso(p, NIVELES[modalAbierto.nivel].etiqueta));
+    if (ok) toast("Aviso enviado.", "ok");
+  });
+
+  // marca en Firestore, una sola vez entre todos los clientes, que ya se envió el aviso externo de este nivel
+  async function marcarEnvioUnaVez(pedidoId, campo){
+    const ref = db.collection("pedidos").doc(pedidoId);
+    try{
+      return await db.runTransaction(async (tx)=>{
+        const snap = await tx.get(ref);
+        if (!snap.exists) return false;
+        if (snap.data()[campo]) return false;
+        tx.update(ref, { [campo]: true });
+        return true;
+      });
+    }catch(e){ return false; }
+  }
+
+  // ---------- programador ----------
+  function revisarPedidos(){
+    const ahora = Date.now();
+    pedidos.forEach(p=>{
+      if (p.estado === "documentado") return;
+      const minInicio = (new Date(p.horaInicio).getTime() - ahora) / 60000;
+      const minFin = (new Date(p.horaFin).getTime() - ahora) / 60000;
+
+      let nivel = null;
+      if (minFin <= 0 && !p.alertFin) nivel = "fin";
+      else if (minFin <= UMBRAL_ROJO_MIN && !p.alertRojo) nivel = "rojo";
+      else if (minFin <= UMBRAL_AMARILLO_MIN && !p.alertAmarillo) nivel = "amarillo";
+      else if (minFin <= UMBRAL_VERDE_MIN && !p.alertVerde) nivel = "verde";
+      else if (minInicio <= 0 && !p.alertInicio) nivel = "inicio";
+
+      if (!nivel) return;
+      const claveLocal = p.id + "-" + nivel;
+      if (avisadoLocalSesion.has(claveLocal)) return;
+      avisadoLocalSesion.add(claveLocal);
+
+      const def = NIVELES[nivel];
+      encolarModal(p.id, nivel);
+      sonarCampana(nivel);
+      lanzarNotifNav(def.etiqueta, p.titulo);
+      activarAvisoPestana(nivel, def.etiqueta + " · " + p.titulo);
+
+      const campo = "alert" + nivel.charAt(0).toUpperCase() + nivel.slice(1);
+      marcarEnvioUnaVez(p.id, campo).then(gane=>{
+        if (gane && configCanal.canal !== "web"){
+          enviarMensajeExterno(textoAviso(p, def.etiqueta));
+        }
+      });
+    });
+  }
+  setInterval(revisarPedidos, CHECK_INTERVAL_MS);
+
+  // ---------- listener de pedidos ----------
+  db.collection("pedidos").onSnapshot(snap=>{
+    pedidos = snap.docs.map(d=> Object.assign({ id: d.id }, d.data()));
+    render();
+    revisarPedidos();
+  }, err=>{
+    toast("Error leyendo pedidos: " + err.message, "err");
+  });
+
+})();
+</script>
+
+</body>
+</html>
