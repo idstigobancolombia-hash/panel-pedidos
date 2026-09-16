@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="icon" id="favicon" href="data:,">
+<link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.92em'%20font-size='92'%3E%E2%98%A0%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -34,7 +34,7 @@
     <div class="stat proximos"><div class="num" id="statProximos">0</div><div class="lbl">Programados para próximos días</div></div>
   </div>
 
-  <div class="clientes-rapido" id="clientesRapido"></div>
+  <div class="conteo-tipos" id="conteoTipos"></div>
 
   <!-- ADMIN: USUARIOS -->
   <section class="block closed" id="blockAdmin" style="display:none;">
@@ -199,11 +199,55 @@
         <button class="btn small" data-min="120">+2 horas</button>
       </div>
       <div class="field-row" style="margin-top:10px;">
-        <div class="field"><label for="modalReschedInput">O elige fecha y hora</label><input type="datetime-local" id="modalReschedInput"></div>
+        <div class="field" style="flex:0 0 150px;"><label for="reFecha">O elige fecha</label><input type="date" id="reFecha"></div>
+        <div class="field" style="flex:0 0 auto;">
+          <label>Hora límite (militar)</label>
+          <div class="hora-select"><select id="reH"></select><span class="sep">:</span><select id="reM"></select></div>
+        </div>
         <div class="field" style="flex:0 0 auto;"><button class="btn primary small" id="modalReschedApply">Aplicar</button></div>
       </div>
     </div>
     <div class="modal-queue" id="modalQueue"></div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR PEDIDO -->
+<div class="modal-backdrop" id="modalEditBackdrop">
+  <div class="modal-box">
+    <span class="modal-eta" style="color:var(--amber); background:rgba(232,163,61,.12);">✏ Editar pedido</span>
+    <h3 id="edTituloCabecera">Pedido</h3>
+    <div class="field-row">
+      <div class="field" style="flex:2 1 220px;"><label for="edTitulo">Pedido / referencia</label><input type="text" id="edTitulo"></div>
+      <div class="field"><label for="edCliente">Cliente (opcional)</label><input type="text" id="edCliente"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label for="edCategoria">Tipo de caso</label>
+        <select id="edCategoria">
+          <option value="wan_lan">WAN / LAN</option>
+          <option value="ids">Investigación IDS</option>
+          <option value="no_identificada">No identificada</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field" style="flex:0 0 150px;"><label for="edFecha">Fecha</label><input type="date" id="edFecha"></div>
+      <div class="field" style="flex:0 0 auto;">
+        <label>Hora inicio (militar)</label>
+        <div class="hora-select"><select id="edInicioH"></select><span class="sep">:</span><select id="edInicioM"></select></div>
+      </div>
+      <div class="field" style="flex:0 0 auto;">
+        <label>Hora límite (militar)</label>
+        <div class="hora-select"><select id="edFinH"></select><span class="sep">:</span><select id="edFinM"></select></div>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field" style="flex:1 1 100%;"><label for="edNotas">Notas (opcional)</label><textarea id="edNotas"></textarea></div>
+    </div>
+    <div class="modal-actions" style="margin-top:14px;">
+      <button class="btn primary" id="edGuardar">Guardar cambios</button>
+      <button class="btn ghost" id="edCancelar">Cancelar</button>
+    </div>
+    <p class="helptext">Al cambiar la hora límite, el semáforo de ese pedido se reinicia: las alertas de 30, 15 y 5 minutos volverán a sonar con la hora nueva.</p>
   </div>
 </div>
 
@@ -312,8 +356,8 @@
       sel.appendChild(op);
     }
   }
-  ["pInicioH","pFinH"].forEach(id=> llenarHoras(document.getElementById(id)));
-  ["pInicioM","pFinM"].forEach(id=> llenarMinutos(document.getElementById(id)));
+  ["pInicioH","pFinH","edInicioH","edFinH","reH"].forEach(id=> llenarHoras(document.getElementById(id)));
+  ["pInicioM","pFinM","edInicioM","edFinM","reM"].forEach(id=> llenarMinutos(document.getElementById(id)));
   document.getElementById("pFechaDia").value = new Date().toISOString().slice(0,10);
   document.getElementById("pFinH").value = "01"; // valor inicial de ejemplo distinto de 00
 
@@ -375,7 +419,8 @@
     if (!sonidoActivo) return;
     const ctx = obtenerAudioCtx(); if (!ctx) return;
     const ahora = ctx.currentTime;
-    const rep = (nivel==="rojo"||nivel==="fin") ? 3 : (nivel==="amarillo" ? 2 : 1);
+    // mínimo 2 campanadas en cualquier aviso; los niveles urgentes suenan más
+    const rep = (nivel==="rojo"||nivel==="fin") ? 4 : (nivel==="amarillo" ? 3 : 2);
     for (let i=0;i<rep;i++){ const t0=ahora+i*0.4; tocarTono(ctx,t0,880,0.6,0.22); tocarTono(ctx,t0,1318.5,0.6,0.13); }
   }
   document.getElementById("btnProbarSonido").addEventListener("click", ()=>{
@@ -391,7 +436,10 @@
   function dibujarFavicon(color){
     const c = document.createElement("canvas"); c.width=32; c.height=32;
     const ctx = c.getContext("2d");
-    ctx.beginPath(); ctx.arc(16,16,14,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+    ctx.beginPath(); ctx.arc(16,16,15,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+    ctx.font = "19px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "#14181F";
+    ctx.fillText("☠", 16, 17);
     return c.toDataURL("image/png");
   }
   function activarAvisoPestana(nivel, msg){
@@ -581,20 +629,82 @@
     try{ await db.collection("pedidos").doc(id).delete(); }
     catch(e){ toast("No se pudo eliminar: " + e.message, "err"); }
   }
+  // BUGFIX: sin esto, tras reprogramar/posponer el semáforo NO volvía a avisar,
+  // porque esta pestaña ya tenía marcado "id-nivel" como avisado para siempre.
+  function limpiarDedupLocal(id){
+    ["inicio","verde","amarillo","rojo","fin"].forEach(n=> avisadoLocalSesion.delete(id + "-" + n));
+  }
+
   async function reprogramarPedido(id, timestampMs){
     try{
       await db.collection("pedidos").doc(id).update({
         horaFin: new Date(timestampMs).toISOString(),
         alertVerde:false, alertAmarillo:false, alertRojo:false, alertFin:false
       });
+      limpiarDedupLocal(id);
       toast("Pedido reprogramado.", "ok");
     }catch(e){ toast("No se pudo reprogramar: " + e.message, "err"); }
   }
   async function posponer10min(id){
     const p = pedidos.find(x=>x.id===id);
     if (!p) return;
-    await reprogramarPedido(id, new Date(p.horaFin).getTime() + 10*60000);
+    // si ya venció, los 10 minutos cuentan desde ahora (no desde una hora pasada),
+    // así "posponer" siempre da 10 minutos reales de margen.
+    const base = Math.max(new Date(p.horaFin).getTime(), Date.now());
+    await reprogramarPedido(id, base + 10*60000);
   }
+
+  // ---------- editar pedido ----------
+  const modalEditBackdrop = document.getElementById("modalEditBackdrop");
+  let editandoId = null;
+
+  function cerrarEditor(){ editandoId = null; modalEditBackdrop.classList.remove("show"); }
+
+  function abrirEditor(p){
+    editandoId = p.id;
+    const ini = new Date(p.horaInicio), fin = new Date(p.horaFin);
+    document.getElementById("edTituloCabecera").textContent = p.titulo;
+    document.getElementById("edTitulo").value = p.titulo || "";
+    document.getElementById("edCliente").value = p.cliente || "";
+    document.getElementById("edNotas").value = p.notas || "";
+    document.getElementById("edCategoria").value = p.categoria || "wan_lan";
+    const y = ini.getFullYear(), m = String(ini.getMonth()+1).padStart(2,"0"), d = String(ini.getDate()).padStart(2,"0");
+    document.getElementById("edFecha").value = y + "-" + m + "-" + d;
+    document.getElementById("edInicioH").value = String(ini.getHours()).padStart(2,"0");
+    document.getElementById("edInicioM").value = String(Math.floor(ini.getMinutes()/10)*10).padStart(2,"0");
+    document.getElementById("edFinH").value = String(fin.getHours()).padStart(2,"0");
+    document.getElementById("edFinM").value = String(Math.floor(fin.getMinutes()/10)*10).padStart(2,"0");
+    modalEditBackdrop.classList.add("show");
+  }
+
+  document.getElementById("edCancelar").addEventListener("click", cerrarEditor);
+  modalEditBackdrop.addEventListener("click", (e)=>{ if (e.target === modalEditBackdrop) cerrarEditor(); });
+
+  document.getElementById("edGuardar").addEventListener("click", async ()=>{
+    if (!editandoId) return;
+    const titulo = document.getElementById("edTitulo").value.trim();
+    const dia = document.getElementById("edFecha").value;
+    if (!titulo || !dia){ toast("El pedido y la fecha son obligatorios.", "err"); return; }
+
+    let inicio = construirFechaHora(dia, document.getElementById("edInicioH").value, document.getElementById("edInicioM").value, dia);
+    let fin = construirFechaHora(dia, document.getElementById("edFinH").value, document.getElementById("edFinM").value, dia);
+    if (fin.getTime() <= inicio.getTime()) fin = new Date(fin.getTime() + 24*60*60*1000);
+
+    try{
+      await db.collection("pedidos").doc(editandoId).update({
+        titulo,
+        cliente: document.getElementById("edCliente").value.trim(),
+        notas: document.getElementById("edNotas").value.trim(),
+        categoria: document.getElementById("edCategoria").value,
+        horaInicio: inicio.toISOString(),
+        horaFin: fin.toISOString(),
+        alertInicio:false, alertVerde:false, alertAmarillo:false, alertRojo:false, alertFin:false
+      });
+      limpiarDedupLocal(editandoId);
+      cerrarEditor();
+      toast("Pedido actualizado.", "ok");
+    }catch(e){ toast("No se pudo guardar: " + e.message, "err"); }
+  });
 
   // ---------- render ----------
   function filaPedido(p){
@@ -619,6 +729,11 @@
       btnDoc.className = "btn small"; btnDoc.textContent = "Marcar documentado";
       btnDoc.addEventListener("click", ()=> marcarDocumentado(p.id));
       actions.appendChild(btnDoc);
+
+      const btnEdit = document.createElement("button");
+      btnEdit.className = "btn small"; btnEdit.textContent = "Editar";
+      btnEdit.addEventListener("click", ()=> abrirEditor(p));
+      actions.appendChild(btnEdit);
 
       const btnPos = document.createElement("button");
       btnPos.className = "btn small"; btnPos.textContent = "Posponer 10 min";
@@ -661,7 +776,7 @@
     } else documentados.forEach(p=> tDone.appendChild(filaPedido(p)));
 
     renderResumen(todosPendientes);
-    renderClientesRapido(todosPendientes);
+    renderConteoTipos(todosPendientes);
     renderBannerSobrecarga(todosPendientes);
   }
 
@@ -673,16 +788,32 @@
     document.getElementById("statProximos").textContent = pendientes.length - paraHoy.length;
   }
 
-  const PRIORIDAD_CLS = { venc:0, amarillo:1, verde:2, inicio:3, pend:4 };
-  function renderClientesRapido(pendientes){
-    const cont = document.getElementById("clientesRapido");
+  function renderConteoTipos(pendientes){
+    const cont = document.getElementById("conteoTipos");
     cont.innerHTML = "";
-    if (pendientes.length===0){ cont.innerHTML = '<span class="empty">Sin pedidos pendientes.</span>'; return; }
-    const items = pendientes.map(p=>({p, est: estadoTexto(p)})).sort((a,b)=> (PRIORIDAD_CLS[a.est.cls]-PRIORIDAD_CLS[b.est.cls]) || (new Date(a.p.horaFin)-new Date(b.p.horaFin)));
-    items.forEach(({p,est})=>{
-      const chip = document.createElement("span"); chip.className="chip";
-      const dot = document.createElement("span"); dot.className="dot-mini "+(est.cls==="inicio"?"pend":est.cls); chip.appendChild(dot);
-      const txt = document.createElement("span"); txt.textContent = p.cliente ? p.cliente : p.titulo; chip.appendChild(txt);
+    Object.keys(CATEGORIAS).forEach(cat=>{
+      const delTipo = pendientes.filter(p=> p.categoria === cat);
+      const urgentes = delTipo.filter(p=> estadoTexto(p).cls === "venc").length;
+
+      const chip = document.createElement("span");
+      chip.className = "chip tipo-" + cat + (delTipo.length === 0 ? " vacio" : "");
+
+      const dot = document.createElement("span"); dot.className = "dot-mini";
+      chip.appendChild(dot);
+
+      const txt = document.createElement("span");
+      txt.textContent = CATEGORIAS[cat];
+      chip.appendChild(txt);
+
+      const num = document.createElement("strong"); num.className = "conteo mono";
+      num.textContent = delTipo.length;
+      chip.appendChild(num);
+
+      if (urgentes > 0){
+        const urg = document.createElement("span"); urg.className = "urg mono";
+        urg.textContent = urgentes + " vencido" + (urgentes>1 ? "s" : "");
+        chip.appendChild(urg);
+      }
       cont.appendChild(chip);
     });
   }
@@ -742,7 +873,10 @@
     modalQueue.textContent = colaModal.length>0 ? ("Hay " + colaModal.length + " aviso(s) más en cola.") : "";
     document.getElementById("modalBtnEnviar").style.display = (configCanal.canal==="web") ? "none":"inline-block";
     document.getElementById("modalResched").style.display = "none";
-    document.getElementById("modalReschedInput").value = "";
+    const fLim = new Date(p.horaFin);
+    document.getElementById("reFecha").value = fLim.getFullYear() + "-" + String(fLim.getMonth()+1).padStart(2,"0") + "-" + String(fLim.getDate()).padStart(2,"0");
+    document.getElementById("reH").value = String(fLim.getHours()).padStart(2,"0");
+    document.getElementById("reM").value = String(Math.floor(fLim.getMinutes()/10)*10).padStart(2,"0");
     modalBackdrop.classList.add("show");
   }
   document.getElementById("modalBtnCerrar").addEventListener("click", mostrarSiguienteModal);
@@ -754,9 +888,10 @@
   });
   document.getElementById("modalReschedApply").addEventListener("click", ()=>{
     if (!modalAbierto) return;
-    const val = document.getElementById("modalReschedInput").value;
-    if (!val){ toast("Elige fecha y hora.", "err"); return; }
-    reprogramarPedido(modalAbierto.pedidoId, new Date(val).getTime());
+    const dia = document.getElementById("reFecha").value;
+    if (!dia){ toast("Elige la fecha.", "err"); return; }
+    const nueva = construirFechaHora(dia, document.getElementById("reH").value, document.getElementById("reM").value, dia);
+    reprogramarPedido(modalAbierto.pedidoId, nueva.getTime());
     mostrarSiguienteModal();
   });
   document.getElementById("modalBtnEnviar").addEventListener("click", async ()=>{
