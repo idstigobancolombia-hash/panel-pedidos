@@ -125,9 +125,12 @@
         <div class="field">
           <label>Tipo de caso</label>
           <div class="cat-tabs" id="catTabsForm">
-            <button type="button" data-cat="wan_lan" class="active">WAN / LAN</button>
-            <button type="button" data-cat="ids">Investigación IDS</button>
-            <button type="button" data-cat="no_identificada">No identificada</button>
+            <button type="button" data-cat="inc_relacionado" class="active">INC relacionado</button>
+            <button type="button" data-cat="visita_terreno">Visita terreno</button>
+            <button type="button" data-cat="b_amarillo">B. amarillo</button>
+            <button type="button" data-cat="escalado_soc">Escalado SOC</button>
+            <button type="button" data-cat="envio_equipo">Envío de equipo</button>
+            <button type="button" data-cat="sin_datos">Sin datos aún</button>
           </div>
         </div>
 
@@ -159,9 +162,12 @@
     <span>PENDIENTES</span>
     <div class="cat-tabs" id="catTabsFiltro">
       <button type="button" data-cat="todas" class="active">Todas</button>
-      <button type="button" data-cat="wan_lan">WAN/LAN</button>
-      <button type="button" data-cat="ids">IDS</button>
-      <button type="button" data-cat="no_identificada">No identificada</button>
+      <button type="button" data-cat="inc_relacionado">INC relacionado</button>
+      <button type="button" data-cat="visita_terreno">Visita terreno</button>
+      <button type="button" data-cat="b_amarillo">B. amarillo</button>
+      <button type="button" data-cat="escalado_soc">Escalado SOC</button>
+      <button type="button" data-cat="envio_equipo">Envío de equipo</button>
+      <button type="button" data-cat="sin_datos">Sin datos aún</button>
     </div>
   </div>
   <table class="ticker" id="tablaPendientes"></table>
@@ -185,7 +191,7 @@
     <div class="modal-notas" id="modalNotas" style="display:none;"></div>
     <div class="modal-actions">
       <button class="btn primary" id="modalBtnDoc">Marcar documentado</button>
-      <button class="btn" id="modalBtnPosponer">Posponer 10 min</button>
+      <button class="btn" id="modalBtnPosponer">Posponer 15 min</button>
       <button class="btn" id="modalBtnResched">Reprogramar</button>
       <button class="btn" id="modalBtnEnviar">Enviar aviso ahora</button>
       <button class="btn ghost" id="modalBtnCerrar">Cerrar</button>
@@ -223,9 +229,12 @@
     <div class="field-row">
       <div class="field"><label for="edCategoria">Tipo de caso</label>
         <select id="edCategoria">
-          <option value="wan_lan">WAN / LAN</option>
-          <option value="ids">Investigación IDS</option>
-          <option value="no_identificada">No identificada</option>
+          <option value="inc_relacionado">INC relacionado</option>
+          <option value="visita_terreno">Visita terreno</option>
+          <option value="b_amarillo">B. amarillo</option>
+          <option value="escalado_soc">Escalado SOC</option>
+          <option value="envio_equipo">Envío de equipo</option>
+          <option value="sin_datos">Sin datos aún</option>
         </select>
       </div>
     </div>
@@ -247,7 +256,7 @@
       <button class="btn primary" id="edGuardar">Guardar cambios</button>
       <button class="btn ghost" id="edCancelar">Cancelar</button>
     </div>
-    <p class="helptext">Al cambiar la hora límite, el semáforo de ese pedido se reinicia: las alertas de 30, 15 y 5 minutos volverán a sonar con la hora nueva.</p>
+    <p class="helptext">Al cambiar la hora límite, el semáforo de ese pedido se reinicia: las alertas de 30, 15 y 5 minutos volverán a sonar con la hora nueva. Esto es distinto a <strong>Posponer 15 min</strong>, que deja la ventana igual y solo corre el aviso.</p>
   </div>
 </div>
 
@@ -291,7 +300,18 @@
   const CHECK_INTERVAL_MS = 20000;
   const UMBRAL_VERDE_MIN = 30, UMBRAL_AMARILLO_MIN = 15, UMBRAL_ROJO_MIN = 5;
   const UMBRAL_SOBRECARGA = 7;
-  const CATEGORIAS = { wan_lan: "WAN / LAN", ids: "Investigación IDS", no_identificada: "No identificada" };
+  const CATEGORIAS = {
+    inc_relacionado: "INC relacionado",
+    visita_terreno:  "Visita terreno",
+    b_amarillo:      "B. amarillo",
+    escalado_soc:    "Escalado SOC",
+    envio_equipo:    "Envío de equipo",
+    sin_datos:       "Sin datos aún"
+  };
+  // pedidos creados antes del cambio de categorías: solo para que se sigan viendo bien
+  const CATEGORIAS_ANTIGUAS = { wan_lan: "WAN / LAN (antiguo)", ids: "Investigación IDS (antiguo)", no_identificada: "No identificada (antiguo)" };
+  function nombreCategoria(cat){ return CATEGORIAS[cat] || CATEGORIAS_ANTIGUAS[cat] || cat || "—"; }
+  const SNOOZE_MIN = 15;
 
   let pedidos = [];          // caché local, alimentada por onSnapshot
   let configCanal = { canal: "web", discordWebhook:"", telegramToken:"", telegramChatId:"" };
@@ -516,7 +536,7 @@
   }
   function textoAviso(p, etiqueta){
     const ini = fmtFecha(p.horaInicio), fin = fmtFecha(p.horaFin);
-    let t = (etiqueta ? etiqueta + " " : "") + "Pedido: " + p.titulo + " [" + (CATEGORIAS[p.categoria]||p.categoria) + "]";
+    let t = (etiqueta ? etiqueta + " " : "") + "Pedido: " + p.titulo + " [" + (nombreCategoria(p.categoria)) + "]";
     if (p.cliente) t += " — " + p.cliente;
     t += "\nVentana: " + ini.hora + " a " + fin.hora + " (" + fin.fecha + ")";
     if (p.notas) t += "\nNotas: " + p.notas;
@@ -573,7 +593,7 @@
   }
 
   // ---------- categorías: tabs del formulario y del filtro ----------
-  let categoriaForm = "wan_lan";
+  let categoriaForm = "inc_relacionado";
   document.querySelectorAll("#catTabsForm button").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       document.querySelectorAll("#catTabsForm button").forEach(b=> b.classList.remove("active"));
@@ -612,6 +632,7 @@
         horaInicio: inicio.toISOString(), horaFin: fin.toISOString(),
         estado: "pendiente",
         alertInicio:false, alertVerde:false, alertAmarillo:false, alertRojo:false, alertFin:false,
+        snoozeHasta: null,
         creadoPor: usuario, creadoEn: firebase.firestore.FieldValue.serverTimestamp()
       });
       e.target.reset();
@@ -639,19 +660,63 @@
     try{
       await db.collection("pedidos").doc(id).update({
         horaFin: new Date(timestampMs).toISOString(),
+        snoozeHasta: null,
         alertVerde:false, alertAmarillo:false, alertRojo:false, alertFin:false
       });
       limpiarDedupLocal(id);
       toast("Pedido reprogramado.", "ok");
     }catch(e){ toast("No se pudo reprogramar: " + e.message, "err"); }
   }
-  async function posponer10min(id){
-    const p = pedidos.find(x=>x.id===id);
-    if (!p) return;
-    // si ya venció, los 10 minutos cuentan desde ahora (no desde una hora pasada),
-    // así "posponer" siempre da 10 minutos reales de margen.
-    const base = Math.max(new Date(p.horaFin).getTime(), Date.now());
-    await reprogramarPedido(id, base + 10*60000);
+  // "Posponer 15 min" NO mueve la hora límite del pedido: solo silencia sus avisos
+  // durante 15 minutos y, al cumplirse, vuelve a avisar una vez. Una visita de 8 a 10
+  // sigue siendo de 8 a 10; solo se corre el momento del recordatorio.
+  async function posponer15min(id){
+    const hasta = new Date(Date.now() + SNOOZE_MIN*60000).toISOString();
+    try{
+      await db.collection("pedidos").doc(id).update({ snoozeHasta: hasta });
+      // el aviso que se acaba de ver ya cumplió; la próxima campanada es la del snooze
+      limpiarDedupLocal(id);
+      toast("Pospuesto " + SNOOZE_MIN + " min — te aviso de nuevo a las " + fmtFecha(hasta).hora + ".", "ok");
+    }catch(e){ toast("No se pudo posponer: " + e.message, "err"); }
+  }
+
+  function enSnooze(p){
+    return !!p.snoozeHasta && Date.now() < new Date(p.snoozeHasta).getTime();
+  }
+  function nivelPorTiempo(p){
+    const minFin = (new Date(p.horaFin).getTime() - Date.now()) / 60000;
+    if (minFin <= 0) return "fin";
+    if (minFin <= UMBRAL_ROJO_MIN) return "rojo";
+    if (minFin <= UMBRAL_AMARILLO_MIN) return "amarillo";
+    if (minFin <= UMBRAL_VERDE_MIN) return "verde";
+    return "inicio";
+  }
+  // niveles cuyo umbral ya pasó: al terminar un snooze se dan por avisados,
+  // para que el recordatorio no venga seguido de la tanda de avisos atrasados.
+  function flagsYaCruzados(p){
+    const ahora = Date.now();
+    const minFin = (new Date(p.horaFin).getTime() - ahora) / 60000;
+    const minInicio = (new Date(p.horaInicio).getTime() - ahora) / 60000;
+    const f = {};
+    if (minInicio <= 0) f.alertInicio = true;
+    if (minFin <= UMBRAL_VERDE_MIN) f.alertVerde = true;
+    if (minFin <= UMBRAL_AMARILLO_MIN) f.alertAmarillo = true;
+    if (minFin <= UMBRAL_ROJO_MIN) f.alertRojo = true;
+    if (minFin <= 0) f.alertFin = true;
+    return f;
+  }
+  // cierra el snooze una sola vez entre todas las pestañas abiertas
+  async function cerrarSnooze(pedidoId, valorEsperado, flags){
+    const ref = db.collection("pedidos").doc(pedidoId);
+    try{
+      return await db.runTransaction(async (tx)=>{
+        const snap = await tx.get(ref);
+        if (!snap.exists) return false;
+        if (snap.data().snoozeHasta !== valorEsperado) return false;
+        tx.update(ref, Object.assign({ snoozeHasta: null }, flags));
+        return true;
+      });
+    }catch(e){ return false; }
   }
 
   // ---------- editar pedido ----------
@@ -667,7 +732,7 @@
     document.getElementById("edTitulo").value = p.titulo || "";
     document.getElementById("edCliente").value = p.cliente || "";
     document.getElementById("edNotas").value = p.notas || "";
-    document.getElementById("edCategoria").value = p.categoria || "wan_lan";
+    document.getElementById("edCategoria").value = p.categoria || "inc_relacionado";
     const y = ini.getFullYear(), m = String(ini.getMonth()+1).padStart(2,"0"), d = String(ini.getDate()).padStart(2,"0");
     document.getElementById("edFecha").value = y + "-" + m + "-" + d;
     document.getElementById("edInicioH").value = String(ini.getHours()).padStart(2,"0");
@@ -698,6 +763,7 @@
         categoria: document.getElementById("edCategoria").value,
         horaInicio: inicio.toISOString(),
         horaFin: fin.toISOString(),
+        snoozeHasta: null,
         alertInicio:false, alertVerde:false, alertAmarillo:false, alertRojo:false, alertFin:false
       });
       limpiarDedupLocal(editandoId);
@@ -719,7 +785,13 @@
       '<td class="state"><span class="badge ' + est.cls + '">' + est.label + '</span></td>' +
       '<td class="actions"></td>';
     tr.querySelector(".titulo").textContent = p.titulo;
-    tr.querySelector(".cat").textContent = CATEGORIAS[p.categoria] || p.categoria;
+    tr.querySelector(".cat").textContent = nombreCategoria(p.categoria);
+    if (enSnooze(p)){
+      const av = document.createElement("div");
+      av.className = "snooze-tag mono";
+      av.textContent = "⏰ pospuesto — aviso a las " + fmtFecha(p.snoozeHasta).hora;
+      tr.querySelector(".info").appendChild(av);
+    }
     if (p.cliente) tr.querySelector(".cliente").textContent = p.cliente;
     if (p.notas) tr.querySelector(".notas").textContent = p.notas;
 
@@ -736,8 +808,8 @@
       actions.appendChild(btnEdit);
 
       const btnPos = document.createElement("button");
-      btnPos.className = "btn small"; btnPos.textContent = "Posponer 10 min";
-      btnPos.addEventListener("click", ()=> posponer10min(p.id));
+      btnPos.className = "btn small"; btnPos.textContent = "Posponer 15 min";
+      btnPos.addEventListener("click", ()=> posponer15min(p.id));
       actions.appendChild(btnPos);
 
       const btnEnv = document.createElement("button");
@@ -752,8 +824,14 @@
       actions.appendChild(btnEnv);
     }
     const btnDel = document.createElement("button");
-    btnDel.className = "btn ghost small"; btnDel.textContent = "Eliminar";
-    btnDel.addEventListener("click", ()=> eliminarPedido(p.id));
+    btnDel.className = "btn icon-del small";
+    btnDel.textContent = "🗑";
+    btnDel.title = "Eliminar pedido";
+    btnDel.setAttribute("aria-label", "Eliminar pedido");
+    btnDel.addEventListener("click", ()=>{
+      if (!confirm("¿Eliminar el pedido \"" + p.titulo + "\"? No se puede deshacer.")) return;
+      eliminarPedido(p.id);
+    });
     actions.appendChild(btnDel);
     return tr;
   }
@@ -854,8 +932,8 @@
     fin:     { clase:"nivel-fin",     etiqueta:"🔴 Hora límite alcanzada" }
   };
 
-  function encolarModal(pedidoId, nivel){
-    colaModal.push({ pedidoId, nivel });
+  function encolarModal(pedidoId, nivel, esRecordatorio){
+    colaModal.push({ pedidoId, nivel, esRecordatorio: !!esRecordatorio });
     if (!modalAbierto) mostrarSiguienteModal();
   }
   function mostrarSiguienteModal(){
@@ -866,8 +944,10 @@
     modalAbierto = item;
     const def = NIVELES[item.nivel];
     modalBox.className = "modal-box " + def.clase;
-    modalEta.textContent = def.etiqueta;
-    modalTitulo.textContent = p.titulo + " · " + (CATEGORIAS[p.categoria]||"");
+    modalEta.textContent = item.esRecordatorio
+      ? ("⏰ Recordatorio (pospuesto " + SNOOZE_MIN + " min) · " + def.etiqueta)
+      : def.etiqueta;
+    modalTitulo.textContent = p.titulo + " · " + nombreCategoria(p.categoria);
     modalCliente.textContent = p.cliente ? "Cliente: " + p.cliente : "";
     if (p.notas){ modalNotas.style.display="block"; modalNotas.textContent=p.notas; } else modalNotas.style.display="none";
     modalQueue.textContent = colaModal.length>0 ? ("Hay " + colaModal.length + " aviso(s) más en cola.") : "";
@@ -881,7 +961,7 @@
   }
   document.getElementById("modalBtnCerrar").addEventListener("click", mostrarSiguienteModal);
   document.getElementById("modalBtnDoc").addEventListener("click", ()=>{ if (modalAbierto) marcarDocumentado(modalAbierto.pedidoId); mostrarSiguienteModal(); });
-  document.getElementById("modalBtnPosponer").addEventListener("click", ()=>{ if (modalAbierto) posponer10min(modalAbierto.pedidoId); mostrarSiguienteModal(); });
+  document.getElementById("modalBtnPosponer").addEventListener("click", ()=>{ if (modalAbierto) posponer15min(modalAbierto.pedidoId); mostrarSiguienteModal(); });
   document.getElementById("modalBtnResched").addEventListener("click", ()=>{ const el=document.getElementById("modalResched"); el.style.display = el.style.display==="none"?"block":"none"; });
   document.querySelectorAll("#modalResched [data-min]").forEach(btn=>{
     btn.addEventListener("click", ()=>{ if (!modalAbierto) return; reprogramarPedido(modalAbierto.pedidoId, Date.now()+parseInt(btn.dataset.min,10)*60000); mostrarSiguienteModal(); });
@@ -920,6 +1000,36 @@
     const ahora = Date.now();
     pedidos.forEach(p=>{
       if (p.estado === "documentado") return;
+
+      // --- pospuesto: silencio total hasta que se cumpla el plazo ---
+      if (p.snoozeHasta){
+        if (ahora < new Date(p.snoozeHasta).getTime()) return;
+
+        // el plazo se cumplió: toca UN recordatorio, con el nivel que corresponda ahora
+        const claveSnooze = p.id + "-snooze-" + p.snoozeHasta;
+        if (avisadoLocalSesion.has(claveSnooze)) return;
+        avisadoLocalSesion.add(claveSnooze);
+
+        const nivelRec = nivelPorTiempo(p);
+        const flags = flagsYaCruzados(p);
+        Object.keys(flags).forEach(f=>{
+          const n = f.replace("alert","");
+          avisadoLocalSesion.add(p.id + "-" + n.charAt(0).toLowerCase() + n.slice(1));
+        });
+
+        encolarModal(p.id, nivelRec, true);
+        sonarCampana(nivelRec);
+        lanzarNotifNav("⏰ Recordatorio", p.titulo);
+        activarAvisoPestana(nivelRec, "⏰ Recordatorio · " + p.titulo);
+
+        cerrarSnooze(p.id, p.snoozeHasta, flags).then(gane=>{
+          if (gane && configCanal.canal !== "web"){
+            enviarMensajeExterno(textoAviso(p, "⏰ Recordatorio (pospuesto " + SNOOZE_MIN + " min)"));
+          }
+        });
+        return;
+      }
+
       const minInicio = (new Date(p.horaInicio).getTime() - ahora) / 60000;
       const minFin = (new Date(p.horaFin).getTime() - ahora) / 60000;
 

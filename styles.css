@@ -125,13 +125,33 @@ header.top .sesion .rol-badge{
   border-radius: 10px; padding: 1px 7px;
 }
 .conteo-tipos .chip.vacio{ color: var(--text-dim); opacity: .6; }
-.conteo-tipos .chip.tipo-wan_lan .dot-mini{ background: var(--blue); }
-.conteo-tipos .chip.tipo-wan_lan .conteo{ color: var(--blue); }
-.conteo-tipos .chip.tipo-ids .dot-mini{ background: var(--mint); }
-.conteo-tipos .chip.tipo-ids .conteo{ color: var(--mint); }
-.conteo-tipos .chip.tipo-no_identificada .dot-mini{ background: var(--amber); }
-.conteo-tipos .chip.tipo-no_identificada .conteo{ color: var(--amber); }
+.conteo-tipos .chip.tipo-inc_relacionado .dot-mini{ background: var(--blue); }
+.conteo-tipos .chip.tipo-inc_relacionado .conteo{ color: var(--blue); }
+.conteo-tipos .chip.tipo-visita_terreno .dot-mini{ background: var(--mint); }
+.conteo-tipos .chip.tipo-visita_terreno .conteo{ color: var(--mint); }
+.conteo-tipos .chip.tipo-b_amarillo .dot-mini{ background: var(--yellow); }
+.conteo-tipos .chip.tipo-b_amarillo .conteo{ color: var(--yellow); }
+.conteo-tipos .chip.tipo-escalado_soc .dot-mini{ background: var(--red); }
+.conteo-tipos .chip.tipo-escalado_soc .conteo{ color: var(--red); }
+.conteo-tipos .chip.tipo-envio_equipo .dot-mini{ background: var(--amber); }
+.conteo-tipos .chip.tipo-envio_equipo .conteo{ color: var(--amber); }
+.conteo-tipos .chip.tipo-sin_datos .dot-mini{ background: var(--text-dim); }
+.conteo-tipos .chip.tipo-sin_datos .conteo{ color: var(--text-dim); }
 .conteo-tipos .chip.vacio .conteo{ color: var(--text-dim); }
+
+/* papelera */
+.btn.icon-del{
+  border-color: transparent; color: var(--text-dim);
+  padding: 6px 10px; font-size: 15px; line-height: 1;
+}
+.btn.icon-del:hover{ border-color: var(--red); color: var(--red); background: rgba(232,105,93,.08); }
+
+/* indicador de pedido pospuesto */
+.snooze-tag{
+  display:inline-block; margin-top: 5px; font-size: 11.5px;
+  color: var(--blue); background: rgba(127,182,232,.1);
+  border-radius: 3px; padding: 2px 7px;
+}
 
 .banner-alerta{
   display:none;
