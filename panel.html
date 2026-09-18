@@ -148,6 +148,10 @@
               <select id="pFinH"></select><span class="sep">:</span><select id="pFinM"></select>
             </div>
           </div>
+          <div class="field" style="flex:1 1 220px;">
+            <label>&nbsp;</label>
+            <div id="pEstado" class="form-status"></div>
+          </div>
         </div>
 
         <div class="field-row">
@@ -385,10 +389,26 @@
     const d = new Date(diaBase + "T" + hh + ":" + mm + ":00");
     return d;
   }
+  // mensaje visible junto al formulario (además del toast, que puede pasar desapercibido)
+  const pEstado = document.getElementById("pEstado");
+  let pEstadoTimeout = null;
+  function mostrarEstadoForm(msg, tipo){
+    clearTimeout(pEstadoTimeout);
+    pEstado.textContent = msg;
+    pEstado.className = "form-status show " + (tipo || "err");
+    if (tipo === "ok"){
+      pEstadoTimeout = setTimeout(()=>{ pEstado.className = "form-status"; }, 4000);
+    }
+  }
+  function limpiarEstadoForm(){
+    clearTimeout(pEstadoTimeout);
+    pEstado.className = "form-status";
+  }
   // si eliges hoy, no dejamos poner una hora que ya pasó (a las 3pm no se agenda un 9am de hoy)
-  function validarNoEsPasado(inicio){
+  function validarNoEsPasado(inicio, mostrarFn){
+    const mostrar = mostrarFn || toast;
     if (inicio.getTime() < Date.now()){
-      toast("Esa hora de inicio ya pasó hoy. Elige una hora futura o cambia la fecha.", "err");
+      mostrar("⛔ Error de hora: esa hora de inicio ya pasó hoy. Elige una hora futura o cambia la fecha.", "err");
       return false;
     }
     return true;
@@ -617,6 +637,9 @@
     });
   });
 
+  document.getElementById("formPedido").addEventListener("input", limpiarEstadoForm);
+  document.getElementById("formPedido").addEventListener("change", limpiarEstadoForm);
+
   // ---------- nuevo pedido ----------
   document.getElementById("formPedido").addEventListener("submit", async (e)=>{
     e.preventDefault();
@@ -627,12 +650,12 @@
     const iH = document.getElementById("pInicioH").value, iM = document.getElementById("pInicioM").value;
     const fH = document.getElementById("pFinH").value, fM = document.getElementById("pFinM").value;
 
-    if (!titulo || !dia){ toast("Completa el pedido y la fecha.", "err"); return; }
+    if (!titulo || !dia){ mostrarEstadoForm("⛔ Completa el pedido y la fecha.", "err"); return; }
 
     let inicio = construirFechaHora(dia, iH, iM, dia);
     let fin = construirFechaHora(dia, fH, fM, dia);
     if (fin.getTime() <= inicio.getTime()) fin = new Date(fin.getTime() + 24*60*60*1000); // ventana cruza medianoche
-    if (!validarNoEsPasado(inicio)) return;
+    if (!validarNoEsPasado(inicio, mostrarEstadoForm)) return;
 
     try{
       await db.collection("pedidos").add({
@@ -645,8 +668,9 @@
       });
       e.target.reset();
       document.getElementById("pFechaDia").value = new Date().toISOString().slice(0,10);
+      mostrarEstadoForm("✔ Ingresado correctamente.", "ok");
       toast("Pedido agregado.", "ok");
-    }catch(err){ toast("No se pudo guardar: " + err.message, "err"); }
+    }catch(err){ mostrarEstadoForm("⛔ No se pudo guardar: " + err.message, "err"); toast("No se pudo guardar: " + err.message, "err"); }
   });
 
   // ---------- mutaciones de pedidos ----------

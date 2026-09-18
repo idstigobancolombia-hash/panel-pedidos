@@ -186,6 +186,14 @@ section.block.closed .block-body{ display:none; }
 .hora-select select{ padding: 9px 6px; }
 .hora-select .sep{ color: var(--text-dim); }
 
+.form-status{
+  display:none; font-size: 13px; font-weight: 600; border-radius: 4px;
+  padding: 9px 12px; line-height: 1.4; border: 1px solid transparent;
+}
+.form-status.show{ display:block; animation: slide-in .15s ease; }
+.form-status.err{ color: var(--red); background: rgba(232,105,93,.12); border-color: var(--red-dim); }
+.form-status.ok{ color: var(--mint); background: rgba(79,209,174,.12); border-color: var(--mint-dim); }
+
 .btn{ background: transparent; border: 1px solid var(--line); border-radius: 4px; padding: 9px 14px; cursor: pointer; color: var(--text); white-space: nowrap; }
 .btn:hover{ border-color: var(--focus); }
 .btn.primary{ background: var(--amber); border-color: var(--amber); color: #241a06; font-weight: 600; }
