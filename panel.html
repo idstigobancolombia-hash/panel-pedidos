@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.92em'%20font-size='92'%3E%E2%98%A0%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.92em'%20font-size='92'%3E%F0%9F%98%B1%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -191,7 +191,7 @@
     <div class="modal-notas" id="modalNotas" style="display:none;"></div>
     <div class="modal-actions">
       <button class="btn primary" id="modalBtnDoc">Marcar documentado</button>
-      <button class="btn" id="modalBtnPosponer">Posponer 15 min</button>
+      <button class="btn" id="modalBtnPosponer">Posponer 30 min</button>
       <button class="btn" id="modalBtnResched">Reprogramar</button>
       <button class="btn" id="modalBtnEnviar">Enviar aviso ahora</button>
       <button class="btn ghost" id="modalBtnCerrar">Cerrar</button>
@@ -256,7 +256,7 @@
       <button class="btn primary" id="edGuardar">Guardar cambios</button>
       <button class="btn ghost" id="edCancelar">Cancelar</button>
     </div>
-    <p class="helptext">Al cambiar la hora límite, el semáforo de ese pedido se reinicia: las alertas de 30, 15 y 5 minutos volverán a sonar con la hora nueva. Esto es distinto a <strong>Posponer 15 min</strong>, que deja la ventana igual y solo corre el aviso.</p>
+    <p class="helptext">Al cambiar la hora límite, el semáforo de ese pedido se reinicia: las alertas de 30, 15 y 5 minutos volverán a sonar con la hora nueva. Esto es distinto a <strong>Posponer 30 min</strong>, que deja la ventana igual y solo corre el aviso.</p>
   </div>
 </div>
 
@@ -311,7 +311,7 @@
   // pedidos creados antes del cambio de categorías: solo para que se sigan viendo bien
   const CATEGORIAS_ANTIGUAS = { wan_lan: "WAN / LAN (antiguo)", ids: "Investigación IDS (antiguo)", no_identificada: "No identificada (antiguo)" };
   function nombreCategoria(cat){ return CATEGORIAS[cat] || CATEGORIAS_ANTIGUAS[cat] || cat || "—"; }
-  const SNOOZE_MIN = 15;
+  const SNOOZE_MIN = 30;
 
   let pedidos = [];          // caché local, alimentada por onSnapshot
   let configCanal = { canal: "web", discordWebhook:"", telegramToken:"", telegramChatId:"" };
@@ -385,6 +385,14 @@
     const d = new Date(diaBase + "T" + hh + ":" + mm + ":00");
     return d;
   }
+  // si eliges hoy, no dejamos poner una hora que ya pasó (a las 3pm no se agenda un 9am de hoy)
+  function validarNoEsPasado(inicio){
+    if (inicio.getTime() < Date.now()){
+      toast("Esa hora de inicio ya pasó hoy. Elige una hora futura o cambia la fecha.", "err");
+      return false;
+    }
+    return true;
+  }
 
   // ---------- notificaciones del navegador ----------
   const notifDot = document.getElementById("notifDot");
@@ -457,9 +465,8 @@
     const c = document.createElement("canvas"); c.width=32; c.height=32;
     const ctx = c.getContext("2d");
     ctx.beginPath(); ctx.arc(16,16,15,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
-    ctx.font = "19px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillStyle = "#14181F";
-    ctx.fillText("☠", 16, 17);
+    ctx.font = "20px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("😱", 16, 17);
     return c.toDataURL("image/png");
   }
   function activarAvisoPestana(nivel, msg){
@@ -625,6 +632,7 @@
     let inicio = construirFechaHora(dia, iH, iM, dia);
     let fin = construirFechaHora(dia, fH, fM, dia);
     if (fin.getTime() <= inicio.getTime()) fin = new Date(fin.getTime() + 24*60*60*1000); // ventana cruza medianoche
+    if (!validarNoEsPasado(inicio)) return;
 
     try{
       await db.collection("pedidos").add({
@@ -667,7 +675,7 @@
       toast("Pedido reprogramado.", "ok");
     }catch(e){ toast("No se pudo reprogramar: " + e.message, "err"); }
   }
-  // "Posponer 15 min" NO mueve la hora límite del pedido: solo silencia sus avisos
+  // "Posponer 30 min" NO mueve la hora límite del pedido: solo silencia sus avisos
   // durante 15 minutos y, al cumplirse, vuelve a avisar una vez. Una visita de 8 a 10
   // sigue siendo de 8 a 10; solo se corre el momento del recordatorio.
   async function posponer15min(id){
@@ -754,6 +762,7 @@
     let inicio = construirFechaHora(dia, document.getElementById("edInicioH").value, document.getElementById("edInicioM").value, dia);
     let fin = construirFechaHora(dia, document.getElementById("edFinH").value, document.getElementById("edFinM").value, dia);
     if (fin.getTime() <= inicio.getTime()) fin = new Date(fin.getTime() + 24*60*60*1000);
+    if (!validarNoEsPasado(inicio)) return;
 
     try{
       await db.collection("pedidos").doc(editandoId).update({
@@ -808,7 +817,7 @@
       actions.appendChild(btnEdit);
 
       const btnPos = document.createElement("button");
-      btnPos.className = "btn small"; btnPos.textContent = "Posponer 15 min";
+      btnPos.className = "btn small"; btnPos.textContent = "Posponer 30 min";
       btnPos.addEventListener("click", ()=> posponer15min(p.id));
       actions.appendChild(btnPos);
 
