@@ -256,6 +256,7 @@
     <div class="field-row">
       <div class="field" style="flex:1 1 100%;"><label for="edNotas">Notas (opcional)</label><textarea id="edNotas"></textarea></div>
     </div>
+    <div id="edEstado" class="form-status" style="margin-top:14px;"></div>
     <div class="modal-actions" style="margin-top:14px;">
       <button class="btn primary" id="edGuardar">Guardar cambios</button>
       <button class="btn ghost" id="edCancelar">Cancelar</button>
@@ -753,12 +754,27 @@
 
   // ---------- editar pedido ----------
   const modalEditBackdrop = document.getElementById("modalEditBackdrop");
-  let editandoId = null;
+  const edEstado = document.getElementById("edEstado");
+  let editandoId = null, edEstadoTimeout = null;
+
+  function mostrarEstadoEditor(msg, tipo){
+    clearTimeout(edEstadoTimeout);
+    edEstado.textContent = msg;
+    edEstado.className = "form-status show " + (tipo || "err");
+    if (tipo === "ok"){
+      edEstadoTimeout = setTimeout(()=>{ edEstado.className = "form-status"; }, 4000);
+    }
+  }
+  function limpiarEstadoEditor(){
+    clearTimeout(edEstadoTimeout);
+    edEstado.className = "form-status";
+  }
 
   function cerrarEditor(){ editandoId = null; modalEditBackdrop.classList.remove("show"); }
 
   function abrirEditor(p){
     editandoId = p.id;
+    limpiarEstadoEditor();
     const ini = new Date(p.horaInicio), fin = new Date(p.horaFin);
     document.getElementById("edTituloCabecera").textContent = p.titulo;
     document.getElementById("edTitulo").value = p.titulo || "";
@@ -776,17 +792,19 @@
 
   document.getElementById("edCancelar").addEventListener("click", cerrarEditor);
   modalEditBackdrop.addEventListener("click", (e)=>{ if (e.target === modalEditBackdrop) cerrarEditor(); });
+  document.querySelector("#modalEditBackdrop .modal-box").addEventListener("input", limpiarEstadoEditor);
+  document.querySelector("#modalEditBackdrop .modal-box").addEventListener("change", limpiarEstadoEditor);
 
   document.getElementById("edGuardar").addEventListener("click", async ()=>{
     if (!editandoId) return;
     const titulo = document.getElementById("edTitulo").value.trim();
     const dia = document.getElementById("edFecha").value;
-    if (!titulo || !dia){ toast("El pedido y la fecha son obligatorios.", "err"); return; }
+    if (!titulo || !dia){ mostrarEstadoEditor("⛔ El pedido y la fecha son obligatorios.", "err"); return; }
 
     let inicio = construirFechaHora(dia, document.getElementById("edInicioH").value, document.getElementById("edInicioM").value, dia);
     let fin = construirFechaHora(dia, document.getElementById("edFinH").value, document.getElementById("edFinM").value, dia);
     if (fin.getTime() <= inicio.getTime()) fin = new Date(fin.getTime() + 24*60*60*1000);
-    if (!validarNoEsPasado(inicio)) return;
+    if (!validarNoEsPasado(inicio, mostrarEstadoEditor)) return;
 
     try{
       await db.collection("pedidos").doc(editandoId).update({
@@ -800,9 +818,10 @@
         alertInicio:false, alertVerde:false, alertAmarillo:false, alertRojo:false, alertFin:false
       });
       limpiarDedupLocal(editandoId);
-      cerrarEditor();
+      mostrarEstadoEditor("✔ Editado con éxito.", "ok");
       toast("Pedido actualizado.", "ok");
-    }catch(e){ toast("No se pudo guardar: " + e.message, "err"); }
+      setTimeout(cerrarEditor, 700);
+    }catch(e){ mostrarEstadoEditor("⛔ No se pudo guardar: " + e.message, "err"); toast("No se pudo guardar: " + e.message, "err"); }
   });
 
   // ---------- render ----------
