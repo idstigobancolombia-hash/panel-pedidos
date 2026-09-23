@@ -229,7 +229,15 @@ table.ticker td{ padding: 12px 10px; vertical-align: top; font-size: 14px; }
 td.when{ width: 108px; white-space: nowrap; }
 td.when .date{ font-size: 11px; color: var(--text-dim); }
 td.when .time{ font-size: 14px; font-weight: 500; }
-td.info .titulo{ font-weight: 600; }
+td.info .titulo{ font-weight: 600; display:inline-flex; align-items:center; gap: 6px; }
+.btn-copiar-id{
+  background: transparent; border: 1px solid var(--line); border-radius: 4px;
+  color: var(--text-dim); width: 22px; height: 22px; padding:0;
+  display:inline-flex; align-items:center; justify-content:center;
+  cursor:pointer; font-size: 12px; line-height:1; flex: none;
+}
+.btn-copiar-id:hover{ border-color: var(--focus); color: var(--text); }
+.btn-copiar-id.copiado{ border-color: var(--mint); color: var(--mint); }
 td.info .cat{ display:inline-block; font-size: 10.5px; color: var(--text-dim); border: 1px solid var(--line); border-radius: 3px; padding: 1px 6px; margin-top: 4px; }
 td.info .cliente{ color: var(--text-dim); font-size: 13px; margin-top: 2px; }
 td.info .notas{ color: var(--text-dim); font-size: 12.5px; margin-top: 4px; }
@@ -241,8 +249,12 @@ td.state{ width: 118px; font-size: 12px; }
 .badge.amarillo{ color: var(--yellow); border-color: var(--yellow-dim); background: rgba(232,201,61,.08);}
 .badge.venc{ color: var(--red); border-color: var(--red-dim); background: rgba(232,105,93,.1); }
 .badge.done{ color: var(--mint); border-color: var(--mint-dim); background: rgba(79,209,174,.08); }
-td.actions{ width: 230px; text-align: right; }
-td.actions .btn{ margin-left: 6px; margin-top: 4px; }
+td.actions{ width: 236px; }
+.actions-grid{
+  display:grid; grid-template-columns: 1fr 1fr; gap: 6px;
+}
+.actions-grid .btn{ margin:0; width:100%; text-align:center; }
+.actions-del-row{ display:flex; justify-content:flex-end; margin-top: 6px; }
 .empty{ padding: 26px 10px; color: var(--text-dim); font-size: 13.5px; text-align: center; }
 
 .toast-stack{ position: fixed; right: 18px; bottom: 18px; display:flex; flex-direction: column; gap: 8px; z-index: 50; }
@@ -283,7 +295,7 @@ footer.note{ margin-top: 30px; font-size: 12px; color: var(--text-dim); line-hei
 @media (max-width: 620px){
   td.state{ display:none; }
   td.actions{ width: auto; }
-  td.actions .btn{ display:block; width: 100%; text-align:center; margin-left:0; }
+  .actions-grid{ grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce){
   .toast{ animation: none; }

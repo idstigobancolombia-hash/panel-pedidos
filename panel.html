@@ -197,7 +197,7 @@
       <button class="btn primary" id="modalBtnDoc">Marcar documentado</button>
       <button class="btn" id="modalBtnPosponer">Posponer 30 min</button>
       <button class="btn" id="modalBtnResched">Reprogramar</button>
-      <button class="btn" id="modalBtnEnviar">Enviar aviso ahora</button>
+      <button class="btn" id="modalBtnEnviar">Enviar SMS al grupo</button>
       <button class="btn ghost" id="modalBtnCerrar">Cerrar</button>
     </div>
     <div class="modal-resched" id="modalResched" style="display:none;">
@@ -836,7 +836,25 @@
         (p.cliente ? '<div class="cliente"></div>' : '') + (p.notas ? '<div class="notas"></div>' : '') + '</td>' +
       '<td class="state"><span class="badge ' + est.cls + '">' + est.label + '</span></td>' +
       '<td class="actions"></td>';
-    tr.querySelector(".titulo").textContent = p.titulo;
+    const tituloEl = tr.querySelector(".titulo");
+    tituloEl.textContent = p.titulo;
+    const btnCopiar = document.createElement("button");
+    btnCopiar.type = "button";
+    btnCopiar.className = "btn-copiar-id";
+    btnCopiar.textContent = "📋";
+    btnCopiar.title = "Copiar ID del caso";
+    btnCopiar.setAttribute("aria-label", "Copiar ID del caso");
+    btnCopiar.addEventListener("click", async (e)=>{
+      e.stopPropagation();
+      try{
+        await navigator.clipboard.writeText(p.titulo);
+        btnCopiar.classList.add("copiado");
+        btnCopiar.textContent = "✔";
+        toast("ID copiado.", "ok");
+        setTimeout(()=>{ btnCopiar.classList.remove("copiado"); btnCopiar.textContent = "📋"; }, 1200);
+      }catch(err){ toast("No se pudo copiar.", "err"); }
+    });
+    tituloEl.appendChild(btnCopiar);
     tr.querySelector(".cat").textContent = nombreCategoria(p.categoria);
     if (enSnooze(p)){
       const av = document.createElement("div");
@@ -849,23 +867,26 @@
 
     const actions = tr.querySelector(".actions");
     if (p.estado !== "documentado"){
+      const grid = document.createElement("div");
+      grid.className = "actions-grid";
+
       const btnDoc = document.createElement("button");
       btnDoc.className = "btn small"; btnDoc.textContent = "Marcar documentado";
       btnDoc.addEventListener("click", ()=> marcarDocumentado(p.id));
-      actions.appendChild(btnDoc);
+      grid.appendChild(btnDoc);
 
       const btnEdit = document.createElement("button");
       btnEdit.className = "btn small"; btnEdit.textContent = "Editar";
       btnEdit.addEventListener("click", ()=> abrirEditor(p));
-      actions.appendChild(btnEdit);
+      grid.appendChild(btnEdit);
 
       const btnPos = document.createElement("button");
       btnPos.className = "btn small"; btnPos.textContent = "Posponer 30 min";
       btnPos.addEventListener("click", ()=> posponer15min(p.id));
-      actions.appendChild(btnPos);
+      grid.appendChild(btnPos);
 
       const btnEnv = document.createElement("button");
-      btnEnv.className = "btn small"; btnEnv.textContent = "Enviar ahora";
+      btnEnv.className = "btn small"; btnEnv.textContent = "Enviar SMS al grupo";
       btnEnv.addEventListener("click", async ()=>{
         if (configCanal.canal === "web"){ toast("Canal en \"Solo Web\".", "err"); return; }
         btnEnv.disabled = true;
@@ -873,8 +894,12 @@
         if (ok) toast("Aviso enviado.", "ok");
         btnEnv.disabled = false;
       });
-      actions.appendChild(btnEnv);
+      grid.appendChild(btnEnv);
+
+      actions.appendChild(grid);
     }
+    const delRow = document.createElement("div");
+    delRow.className = "actions-del-row";
     const btnDel = document.createElement("button");
     btnDel.className = "btn icon-del small";
     btnDel.textContent = "🗑";
@@ -884,7 +909,8 @@
       if (!confirm("¿Eliminar el pedido \"" + p.titulo + "\"? No se puede deshacer.")) return;
       eliminarPedido(p.id);
     });
-    actions.appendChild(btnDel);
+    delRow.appendChild(btnDel);
+    actions.appendChild(delRow);
     return tr;
   }
 
