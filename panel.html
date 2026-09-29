@@ -98,7 +98,7 @@
       </div>
       <div class="field-row" id="camposTelegram">
         <div class="field"><label for="telegramToken">Token del bot de Telegram</label><input type="text" id="telegramToken" placeholder="123456789:AA..."></div>
-        <div class="field"><label for="telegramChatId">Chat ID</label><input type="text" id="telegramChatId" placeholder="-100123456789"></div>
+        <div class="field"><label for="telegramChatId">Chat ID (uno o varios, separados por coma)</label><input type="text" id="telegramChatId" placeholder="986221828, 5446125668"></div>
       </div>
       <div class="field-row">
         <button class="btn primary" id="btnGuardarConfig">Guardar configuración</button>
@@ -107,7 +107,7 @@
       <p class="helptext" id="notaCanalRol"></p>
       <p class="helptext">
         <strong>Discord:</strong> en el canal, <em>Ajustes → Integraciones → Webhooks → Nuevo webhook</em>, copia la URL.<br>
-        <strong>Telegram:</strong> crea un bot con <code>@BotFather</code> (<code>/newbot</code>) y copia el token; para el Chat ID, agrega el bot al chat y visita <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> tras escribir algo.
+        <strong>Telegram:</strong> crea un bot con <code>@BotFather</code> (<code>/newbot</code>) y copia el token. Para el Chat ID, pide a cada persona que le escriba algo al bot (ej. <code>/start</code>), visita <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> y busca su <code>chat.id</code>. Para que le llegue a varias personas, pega todos los Chat ID separados por coma en el mismo campo.
       </p>
     </div>
   </section>
@@ -197,7 +197,7 @@
       <button class="btn primary" id="modalBtnDoc">Marcar documentado</button>
       <button class="btn" id="modalBtnPosponer">Posponer 30 min</button>
       <button class="btn" id="modalBtnResched">Reprogramar</button>
-      <button class="btn" id="modalBtnEnviar">Enviar SMS al grupo</button>
+      <button class="btn" id="modalBtnEnviar">Enviar aviso ahora</button>
       <button class="btn ghost" id="modalBtnCerrar">Cerrar</button>
     </div>
     <div class="modal-resched" id="modalResched" style="display:none;">
@@ -550,12 +550,20 @@
   }
   async function enviarATelegram(texto){
     if (!configCanal.telegramToken || !configCanal.telegramChatId) return false;
-    try{
-      const res = await fetch("https://api.telegram.org/bot" + configCanal.telegramToken + "/sendMessage", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({chat_id: configCanal.telegramChatId, text: texto}) });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.description || "respuesta no válida");
-      return true;
-    }catch(e){ toast("Error Telegram: " + e.message, "err"); return false; }
+    // varios destinatarios: se separan por coma en el mismo campo de Chat ID
+    const ids = configCanal.telegramChatId.split(",").map(s=>s.trim()).filter(Boolean);
+    let algunoOk = false;
+    const errores = [];
+    for (const id of ids){
+      try{
+        const res = await fetch("https://api.telegram.org/bot" + configCanal.telegramToken + "/sendMessage", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({chat_id: id, text: texto}) });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.description || "respuesta no válida");
+        algunoOk = true;
+      }catch(e){ errores.push(id + ": " + e.message); }
+    }
+    if (errores.length) toast("Error Telegram (" + errores.length + "/" + ids.length + "): " + errores[0], "err");
+    return algunoOk;
   }
   async function enviarMensajeExterno(texto){
     if (configCanal.canal === "discord") return await enviarADiscord(texto);
@@ -836,25 +844,7 @@
         (p.cliente ? '<div class="cliente"></div>' : '') + (p.notas ? '<div class="notas"></div>' : '') + '</td>' +
       '<td class="state"><span class="badge ' + est.cls + '">' + est.label + '</span></td>' +
       '<td class="actions"></td>';
-    const tituloEl = tr.querySelector(".titulo");
-    tituloEl.textContent = p.titulo;
-    const btnCopiar = document.createElement("button");
-    btnCopiar.type = "button";
-    btnCopiar.className = "btn-copiar-id";
-    btnCopiar.textContent = "📋";
-    btnCopiar.title = "Copiar ID del caso";
-    btnCopiar.setAttribute("aria-label", "Copiar ID del caso");
-    btnCopiar.addEventListener("click", async (e)=>{
-      e.stopPropagation();
-      try{
-        await navigator.clipboard.writeText(p.titulo);
-        btnCopiar.classList.add("copiado");
-        btnCopiar.textContent = "✔";
-        toast("ID copiado.", "ok");
-        setTimeout(()=>{ btnCopiar.classList.remove("copiado"); btnCopiar.textContent = "📋"; }, 1200);
-      }catch(err){ toast("No se pudo copiar.", "err"); }
-    });
-    tituloEl.appendChild(btnCopiar);
+    tr.querySelector(".titulo").textContent = p.titulo;
     tr.querySelector(".cat").textContent = nombreCategoria(p.categoria);
     if (enSnooze(p)){
       const av = document.createElement("div");
@@ -867,26 +857,23 @@
 
     const actions = tr.querySelector(".actions");
     if (p.estado !== "documentado"){
-      const grid = document.createElement("div");
-      grid.className = "actions-grid";
-
       const btnDoc = document.createElement("button");
       btnDoc.className = "btn small"; btnDoc.textContent = "Marcar documentado";
       btnDoc.addEventListener("click", ()=> marcarDocumentado(p.id));
-      grid.appendChild(btnDoc);
+      actions.appendChild(btnDoc);
 
       const btnEdit = document.createElement("button");
       btnEdit.className = "btn small"; btnEdit.textContent = "Editar";
       btnEdit.addEventListener("click", ()=> abrirEditor(p));
-      grid.appendChild(btnEdit);
+      actions.appendChild(btnEdit);
 
       const btnPos = document.createElement("button");
       btnPos.className = "btn small"; btnPos.textContent = "Posponer 30 min";
       btnPos.addEventListener("click", ()=> posponer15min(p.id));
-      grid.appendChild(btnPos);
+      actions.appendChild(btnPos);
 
       const btnEnv = document.createElement("button");
-      btnEnv.className = "btn small"; btnEnv.textContent = "Enviar SMS al grupo";
+      btnEnv.className = "btn small"; btnEnv.textContent = "Enviar ahora";
       btnEnv.addEventListener("click", async ()=>{
         if (configCanal.canal === "web"){ toast("Canal en \"Solo Web\".", "err"); return; }
         btnEnv.disabled = true;
@@ -894,12 +881,8 @@
         if (ok) toast("Aviso enviado.", "ok");
         btnEnv.disabled = false;
       });
-      grid.appendChild(btnEnv);
-
-      actions.appendChild(grid);
+      actions.appendChild(btnEnv);
     }
-    const delRow = document.createElement("div");
-    delRow.className = "actions-del-row";
     const btnDel = document.createElement("button");
     btnDel.className = "btn icon-del small";
     btnDel.textContent = "🗑";
@@ -909,8 +892,7 @@
       if (!confirm("¿Eliminar el pedido \"" + p.titulo + "\"? No se puede deshacer.")) return;
       eliminarPedido(p.id);
     });
-    delRow.appendChild(btnDel);
-    actions.appendChild(delRow);
+    actions.appendChild(btnDel);
     return tr;
   }
 
