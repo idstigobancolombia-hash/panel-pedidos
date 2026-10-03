@@ -15,7 +15,7 @@
 <div class="wrap">
 
   <header class="top">
-    <h1>Panel de Pedidos <span class="version-tag mono" title="Última actualización: tipos de caso ampliados, cierre de caso obligatorio por tipo, semáforo intermitente">v2.6.0</span></h1>
+    <h1>Panel de Pedidos <span class="version-tag mono" title="Última actualización: semáforo corregido (rojo si está en curso), orden de botones, alerta de sobrecarga por día, reprogramar con hora inicio y fin">v2.7.0</span></h1>
     <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
       <div class="clock mono">Hora local: <span id="reloj">--:--:--</span></div>
       <div class="sesion">
@@ -204,14 +204,14 @@
     <div class="modal-cliente" id="modalCliente"></div>
     <div class="modal-notas" id="modalNotas" style="display:none;"></div>
     <div class="modal-actions">
-      <button class="btn primary" id="modalBtnDoc">Cerrar el caso</button>
       <button class="btn" id="modalBtnPosponer">Posponer 30 min</button>
       <button class="btn" id="modalBtnResched">Reprogramar</button>
       <button class="btn" id="modalBtnEnviar">Enviar a Telegram</button>
+      <button class="btn primary" id="modalBtnDoc">Cerrar el caso</button>
       <button class="btn ghost" id="modalBtnCerrar">Cerrar</button>
     </div>
     <div class="modal-resched" id="modalResched" style="display:none;">
-      <div class="modal-resched-title">Nueva hora límite:</div>
+      <div class="modal-resched-title">Mover solo la hora límite (acceso rápido):</div>
       <div class="quick-btns">
         <button class="btn small" data-min="15">+15 min</button>
         <button class="btn small" data-min="30">+30 min</button>
@@ -219,13 +219,22 @@
         <button class="btn small" data-min="120">+2 horas</button>
       </div>
       <div class="field-row" style="margin-top:10px;">
-        <div class="field" style="flex:0 0 150px;"><label for="reFecha">O elige fecha</label><input type="date" id="reFecha"></div>
+        <div class="field" style="flex:0 0 150px;"><label for="reFecha">Fecha</label><input type="date" id="reFecha"></div>
+      </div>
+      <div class="field-row" style="margin-top:4px;">
         <div class="field" style="flex:0 0 auto;">
-          <label>Hora límite (militar)</label>
+          <label>Hora inicio (militar)</label>
+          <div class="hora-select"><select id="reInicioH"></select><span class="sep">:</span><select id="reInicioM"></select></div>
+        </div>
+        <div class="field" style="flex:0 0 auto;">
+          <label>Hora fin / límite (militar)</label>
           <div class="hora-select"><select id="reH"></select><span class="sep">:</span><select id="reM"></select></div>
         </div>
+      </div>
+      <div class="field-row" style="margin-top:10px;">
         <div class="field" style="flex:0 0 auto;"><button class="btn primary small" id="modalReschedApply">Aplicar</button></div>
       </div>
+      <p class="helptext" style="margin-top:8px;">Los botones de arriba (+15 min, etc.) solo mueven la hora límite. Si cambias la hora de inicio, usa el botón Aplicar.</p>
     </div>
     <div class="modal-queue" id="modalQueue"></div>
   </div>
@@ -407,8 +416,8 @@
       sel.appendChild(op);
     }
   }
-  ["pInicioH","pFinH","edInicioH","edFinH","reH"].forEach(id=> llenarHoras(document.getElementById(id)));
-  ["pInicioM","pFinM","edInicioM","edFinM","reM"].forEach(id=> llenarMinutos(document.getElementById(id)));
+  ["pInicioH","pFinH","edInicioH","edFinH","reInicioH","reH"].forEach(id=> llenarHoras(document.getElementById(id)));
+  ["pInicioM","pFinM","edInicioM","edFinM","reInicioM","reM"].forEach(id=> llenarMinutos(document.getElementById(id)));
   document.getElementById("pFechaDia").value = new Date().toISOString().slice(0,10);
   document.getElementById("pFinH").value = "01"; // valor inicial de ejemplo distinto de 00
 
@@ -733,13 +742,15 @@
     ["inicio","verde","amarillo","rojo","fin"].forEach(n=> avisadoLocalSesion.delete(id + "-" + n));
   }
 
-  async function reprogramarPedido(id, timestampMs){
+  async function reprogramarPedido(id, timestampMs, inicioMs){
     try{
-      await db.collection("pedidos").doc(id).update({
+      const datos = {
         horaFin: new Date(timestampMs).toISOString(),
         snoozeHasta: null,
         alertVerde:false, alertAmarillo:false, alertRojo:false, alertFin:false
-      });
+      };
+      if (inicioMs){ datos.horaInicio = new Date(inicioMs).toISOString(); datos.alertInicio = false; }
+      await db.collection("pedidos").doc(id).update(datos);
       limpiarDedupLocal(id);
       toast("Pedido reprogramado.", "ok");
     }catch(e){ toast("No se pudo reprogramar: " + e.message, "err"); }
@@ -907,20 +918,15 @@
 
     const actions = tr.querySelector(".actions");
     if (p.estado !== "documentado"){
-      const btnDoc = document.createElement("button");
-      btnDoc.className = "btn small"; btnDoc.textContent = "Cerrar el caso";
-      btnDoc.addEventListener("click", ()=> marcarDocumentado(p.id));
-      actions.appendChild(btnDoc);
+      const btnPos = document.createElement("button");
+      btnPos.className = "btn small"; btnPos.textContent = "Posponer 30 min";
+      btnPos.addEventListener("click", ()=> posponer15min(p.id));
+      actions.appendChild(btnPos);
 
       const btnEdit = document.createElement("button");
       btnEdit.className = "btn small"; btnEdit.textContent = "Editar";
       btnEdit.addEventListener("click", ()=> abrirEditor(p));
       actions.appendChild(btnEdit);
-
-      const btnPos = document.createElement("button");
-      btnPos.className = "btn small"; btnPos.textContent = "Posponer 30 min";
-      btnPos.addEventListener("click", ()=> posponer15min(p.id));
-      actions.appendChild(btnPos);
 
       const btnEnv = document.createElement("button");
       btnEnv.className = "btn small"; btnEnv.textContent = "Enviar a Telegram";
@@ -932,6 +938,11 @@
         btnEnv.disabled = false;
       });
       actions.appendChild(btnEnv);
+
+      const btnDoc = document.createElement("button");
+      btnDoc.className = "btn small"; btnDoc.textContent = "Cerrar el caso";
+      btnDoc.addEventListener("click", ()=> marcarDocumentado(p.id));
+      actions.appendChild(btnDoc);
     }
     const btnDel = document.createElement("button");
     btnDel.className = "btn icon-del small";
@@ -980,12 +991,18 @@
   // rojo: vencidos (sobre la hora), incluidos los pospuestos que ya pasaron su hora límite
   // verde: todavía no entran en zona de alerta (de hoy, faltan más de 30 min)
   // azul: programados para otro día (futuro, o quedaron atrás sin cerrar en un día anterior)
+  // rojo: ya venció, o ya está en curso (empezó), sin importar cuánto falte o si se pospuso.
+  // verde: todavía no empieza (es de hoy, pero la hora de inicio aún no llega).
+  // azul: programado para otro día y tampoco ha empezado.
+  // La única forma de volver a verde es reprogramar el pedido para que inicie más adelante.
   function colorSemaforo(p){
-    const minR = (new Date(p.horaFin).getTime() - Date.now()) / 60000;
-    const esHoy = mismoDia(p.horaFin, new Date());
-    if (minR <= 0) return "rojo"; // vencido ya sea de hoy o de un día anterior; se cuenta igual si está pospuesto
-    if (!esHoy) return "azul";
-    if (minR <= UMBRAL_VERDE_MIN) return "rojo"; // dentro de zona de alerta de hoy: se destaca en rojo
+    const ahora = Date.now();
+    const inicio = new Date(p.horaInicio).getTime();
+    const fin = new Date(p.horaFin).getTime();
+    if (fin <= ahora) return "rojo";   // vencido
+    if (inicio <= ahora) return "rojo"; // en curso: ya empezó, aunque falte tiempo para la hora límite
+    const esMismoDiaInicio = mismoDia(p.horaInicio, new Date());
+    if (!esMismoDiaInicio) return "azul";
     return "verde";
   }
   function renderSemaforo(pendientes){
@@ -1032,21 +1049,29 @@
 
   function renderBannerSobrecarga(pendientes){
     const banner = document.getElementById("bannerSobrecarga");
-    const porHora = {};
-    pendientes.forEach(p=>{ const h = new Date(p.horaFin).getHours(); porHora[h] = (porHora[h]||0) + 1; });
-    const horasSaturadas = Object.keys(porHora).filter(h=> porHora[h] > UMBRAL_SOBRECARGA);
-    if (horasSaturadas.length === 0){ banner.classList.remove("show"); banner.textContent=""; return; }
-    const detalle = horasSaturadas.map(h=> String(h).padStart(2,"0") + ":00 (" + porHora[h] + " pedidos)").join(" · ");
-    banner.textContent = "⚠ Hay muchas alertas pendientes para la(s) hora(s) " + detalle + " — deberían cerrar algunos casos.";
+    // se agrupa por DÍA + HORA (no solo la hora), para no sumar el mismo horario de días distintos
+    const porDiaHora = {};
+    pendientes.forEach(p=>{
+      const d = new Date(p.horaFin);
+      const clave = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0") + "-" + d.getHours();
+      porDiaHora[clave] = (porDiaHora[clave]||0) + 1;
+    });
+    const saturadas = Object.keys(porDiaHora).filter(k=> porDiaHora[k] > UMBRAL_SOBRECARGA);
+    if (saturadas.length === 0){ banner.classList.remove("show"); banner.textContent=""; return; }
+    const detalle = saturadas.map(k=>{
+      const [y,m,d,h] = k.split("-");
+      return d + "/" + m + " " + String(h).padStart(2,"0") + ":00 (" + porDiaHora[k] + " pedidos)";
+    }).join(" · ");
+    banner.textContent = "⚠ Hay muchas alertas pendientes para " + detalle + " — deberían cerrar algunos casos.";
     banner.classList.add("show");
-    horasSaturadas.forEach(h=>{
-      if (!horasSobrecargaAvisadas.has(h)){
-        horasSobrecargaAvisadas.add(h);
+    saturadas.forEach(k=>{
+      if (!horasSobrecargaAvisadas.has(k)){
+        horasSobrecargaAvisadas.add(k);
         sonarCampana("rojo");
-        activarAvisoPestana("rojo", "⚠ Sobrecarga a las " + String(h).padStart(2,"0") + ":00");
+        activarAvisoPestana("rojo", "⚠ Sobrecarga: " + porDiaHora[k] + " pedidos a esa hora");
       }
     });
-    Object.keys(porHora).forEach(h=>{ if (porHora[h] <= UMBRAL_SOBRECARGA) horasSobrecargaAvisadas.delete(h); });
+    Object.keys(porDiaHora).forEach(k=>{ if (porDiaHora[k] <= UMBRAL_SOBRECARGA) horasSobrecargaAvisadas.delete(k); });
   }
 
   // ---------- modal semáforo ----------
@@ -1087,8 +1112,10 @@
     modalQueue.textContent = colaModal.length>0 ? ("Hay " + colaModal.length + " aviso(s) más en cola.") : "";
     document.getElementById("modalBtnEnviar").style.display = (configCanal.canal==="web") ? "none":"inline-block";
     document.getElementById("modalResched").style.display = "none";
-    const fLim = new Date(p.horaFin);
+    const fIni = new Date(p.horaInicio), fLim = new Date(p.horaFin);
     document.getElementById("reFecha").value = fLim.getFullYear() + "-" + String(fLim.getMonth()+1).padStart(2,"0") + "-" + String(fLim.getDate()).padStart(2,"0");
+    document.getElementById("reInicioH").value = String(fIni.getHours()).padStart(2,"0");
+    document.getElementById("reInicioM").value = String(Math.floor(fIni.getMinutes()/10)*10).padStart(2,"0");
     document.getElementById("reH").value = String(fLim.getHours()).padStart(2,"0");
     document.getElementById("reM").value = String(Math.floor(fLim.getMinutes()/10)*10).padStart(2,"0");
     modalBackdrop.classList.add("show");
@@ -1104,8 +1131,10 @@
     if (!modalAbierto) return;
     const dia = document.getElementById("reFecha").value;
     if (!dia){ toast("Elige la fecha.", "err"); return; }
-    const nueva = construirFechaHora(dia, document.getElementById("reH").value, document.getElementById("reM").value, dia);
-    reprogramarPedido(modalAbierto.pedidoId, nueva.getTime());
+    const nuevoInicio = construirFechaHora(dia, document.getElementById("reInicioH").value, document.getElementById("reInicioM").value, dia);
+    let nuevoFin = construirFechaHora(dia, document.getElementById("reH").value, document.getElementById("reM").value, dia);
+    if (nuevoFin.getTime() <= nuevoInicio.getTime()) nuevoFin = new Date(nuevoFin.getTime() + 24*60*60*1000); // cruza medianoche
+    reprogramarPedido(modalAbierto.pedidoId, nuevoFin.getTime(), nuevoInicio.getTime());
     mostrarSiguienteModal();
   });
   document.getElementById("modalBtnEnviar").addEventListener("click", async ()=>{
