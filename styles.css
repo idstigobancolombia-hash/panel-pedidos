@@ -151,7 +151,7 @@ header.top .sesion .rol-badge{
 .semaforo-num{ font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: var(--text); }
 @keyframes semaforo-blink{ 0%,100%{ opacity: 1; } 50%{ opacity: .25; } }
 @media (prefers-reduced-motion: reduce){
-  .semaforo-dot{ animation: none; }
+  .semaforo-dot, .row-dot{ animation: none; }
 }
 
 /* papelera */
@@ -241,6 +241,13 @@ table.ticker tr.row{ border-top: 1px solid var(--line); }
 table.ticker tr.row:nth-child(odd){ background: var(--bg-row); }
 table.ticker tr.row:nth-child(even){ background: var(--bg-row-alt); }
 table.ticker td{ padding: 12px 10px; vertical-align: top; font-size: 14px; }
+td.sem{ width: 22px; text-align:center; padding-left: 12px; padding-right: 0; }
+.row-dot{ width: 10px; height: 10px; border-radius: 50%; display:inline-block; animation: semaforo-blink 1.1s ease-in-out infinite; background: var(--text-dim); }
+.row-dot.rojo{ background: var(--red); box-shadow: 0 0 6px var(--red); }
+.row-dot.verde{ background: var(--green); box-shadow: 0 0 6px var(--green); }
+.row-dot.azul{ background: var(--blue); box-shadow: 0 0 6px var(--blue); }
+.row-dot.apagado{ background: var(--line); animation: none; box-shadow: none; }
+td.catIcon{ width: 34px; text-align:center; font-size: 19px; line-height: 1; padding-left: 4px; padding-right: 4px; }
 td.when{ width: 108px; white-space: nowrap; }
 td.when .date{ font-size: 11px; color: var(--text-dim); }
 td.when .time{ font-size: 14px; font-weight: 500; }

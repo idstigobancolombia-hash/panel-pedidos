@@ -880,13 +880,22 @@
     const tr = document.createElement("tr");
     tr.className = "row";
     tr.innerHTML =
+      '<td class="sem"><span class="row-dot"></span></td>' +
       '<td class="when mono"><div class="date">' + fin.fecha + '</div><div class="time">' + ini.hora + '–' + fin.hora + '</div></td>' +
       '<td class="info"><div class="titulo"></div><div class="cat"></div>' +
         (p.cliente ? '<div class="cliente"></div>' : '') + (p.notas ? '<div class="notas"></div>' : '') + '</td>' +
+      '<td class="catIcon" title="' + nombreCategoria(p.categoria) + '"></td>' +
       '<td class="state"><span class="badge ' + est.cls + '">' + est.label + '</span></td>' +
       '<td class="actions"></td>';
     tr.querySelector(".titulo").textContent = p.titulo;
     tr.querySelector(".cat").textContent = nombreCategoria(p.categoria);
+    tr.querySelector(".catIcon").textContent = iconoCategoria(p.categoria);
+    // semáforo intermitente por pedido: igual al resumen, pero para este pedido puntual
+    if (p.estado !== "documentado"){
+      tr.querySelector(".row-dot").classList.add(colorSemaforo(p));
+    } else {
+      tr.querySelector(".row-dot").classList.add("apagado");
+    }
     if (enSnooze(p)){
       const av = document.createElement("div");
       av.className = "snooze-tag mono";
