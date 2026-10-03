@@ -69,6 +69,11 @@ header.top h1{
   margin: 0;
   letter-spacing: 0.2px;
 }
+.version-tag{
+  font-size: 11px; font-weight: 500; color: var(--text-dim);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 2px 8px; margin-left: 8px; vertical-align: middle;
+}
 
 header.top .clock{ font-size: 15px; color: var(--text-dim); }
 header.top .clock span{ color: var(--text); }
@@ -118,26 +123,36 @@ header.top .sesion .rol-badge{
   background: var(--bg-panel); border: 1px solid var(--line); border-radius: 20px;
   padding: 5px 13px 5px 10px; line-height: 1.6;
 }
-.conteo-tipos .chip .dot-mini{ width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--text-dim); }
+.conteo-tipos .chip .icono-cat{ font-size: 14px; line-height: 1; flex: none; }
 .conteo-tipos .chip .conteo{ font-size: 14px; font-weight: 500; }
 .conteo-tipos .chip .urg{
   font-size: 10.5px; color: var(--red); background: rgba(232,105,93,.12);
   border-radius: 10px; padding: 1px 7px;
 }
 .conteo-tipos .chip.vacio{ color: var(--text-dim); opacity: .6; }
-.conteo-tipos .chip.tipo-inc_relacionado .dot-mini{ background: var(--blue); }
 .conteo-tipos .chip.tipo-inc_relacionado .conteo{ color: var(--blue); }
-.conteo-tipos .chip.tipo-visita_terreno .dot-mini{ background: var(--mint); }
 .conteo-tipos .chip.tipo-visita_terreno .conteo{ color: var(--mint); }
-.conteo-tipos .chip.tipo-b_amarillo .dot-mini{ background: var(--yellow); }
 .conteo-tipos .chip.tipo-b_amarillo .conteo{ color: var(--yellow); }
-.conteo-tipos .chip.tipo-escalado_soc .dot-mini{ background: var(--red); }
 .conteo-tipos .chip.tipo-escalado_soc .conteo{ color: var(--red); }
-.conteo-tipos .chip.tipo-envio_equipo .dot-mini{ background: var(--amber); }
 .conteo-tipos .chip.tipo-envio_equipo .conteo{ color: var(--amber); }
-.conteo-tipos .chip.tipo-sin_datos .dot-mini{ background: var(--text-dim); }
+.conteo-tipos .chip.tipo-cambio_equipo .conteo{ color: var(--mint); }
+.conteo-tipos .chip.tipo-config_equipo .conteo{ color: var(--blue); }
 .conteo-tipos .chip.tipo-sin_datos .conteo{ color: var(--text-dim); }
 .conteo-tipos .chip.vacio .conteo{ color: var(--text-dim); }
+
+/* ---------- semáforo intermitente (rojo / verde / azul) ---------- */
+.semaforo{ display:flex; gap: 18px; align-items:center; margin: -10px 0 20px 2px; }
+.semaforo-item{ display:flex; align-items:center; gap: 7px; font-size: 13px; color: var(--text-dim); }
+.semaforo-dot{ width: 11px; height: 11px; border-radius: 50%; display:inline-block; animation: semaforo-blink 1.1s ease-in-out infinite; }
+.semaforo-item.rojo .semaforo-dot{ background: var(--red); box-shadow: 0 0 6px var(--red); }
+.semaforo-item.verde .semaforo-dot{ background: var(--green); box-shadow: 0 0 6px var(--green); }
+.semaforo-item.azul .semaforo-dot{ background: var(--blue); box-shadow: 0 0 6px var(--blue); animation-delay: .35s; }
+.semaforo-item.verde .semaforo-dot{ animation-delay: .18s; }
+.semaforo-num{ font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: var(--text); }
+@keyframes semaforo-blink{ 0%,100%{ opacity: 1; } 50%{ opacity: .25; } }
+@media (prefers-reduced-motion: reduce){
+  .semaforo-dot{ animation: none; }
+}
 
 /* papelera */
 .btn.icon-del{

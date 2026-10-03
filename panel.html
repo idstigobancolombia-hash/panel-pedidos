@@ -15,7 +15,7 @@
 <div class="wrap">
 
   <header class="top">
-    <h1>Panel de Pedidos</h1>
+    <h1>Panel de Pedidos <span class="version-tag mono" title="Última actualización: tipos de caso ampliados, cierre de caso obligatorio por tipo, semáforo intermitente">v2.6.0</span></h1>
     <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
       <div class="clock mono">Hora local: <span id="reloj">--:--:--</span></div>
       <div class="sesion">
@@ -32,6 +32,12 @@
     <div class="stat total"><div class="num" id="statTotal">0</div><div class="lbl">Pedidos abiertos en total</div></div>
     <div class="stat hoy"><div class="num" id="statHoy">0</div><div class="lbl">Pedidos para el día de hoy</div></div>
     <div class="stat proximos"><div class="num" id="statProximos">0</div><div class="lbl">Programados para próximos días</div></div>
+  </div>
+
+  <div class="semaforo" id="semaforo" title="Rojo: vencidos o pospuestos vencidos · Verde: aún no alertan · Azul: otros días">
+    <span class="semaforo-item rojo"><span class="semaforo-dot"></span><span class="semaforo-num" id="semRojo">0</span></span>
+    <span class="semaforo-item verde"><span class="semaforo-dot"></span><span class="semaforo-num" id="semVerde">0</span></span>
+    <span class="semaforo-item azul"><span class="semaforo-dot"></span><span class="semaforo-num" id="semAzul">0</span></span>
   </div>
 
   <div class="conteo-tipos" id="conteoTipos"></div>
@@ -125,12 +131,14 @@
         <div class="field">
           <label>Tipo de caso</label>
           <div class="cat-tabs" id="catTabsForm">
-            <button type="button" data-cat="inc_relacionado" class="active">INC relacionado</button>
+            <button type="button" data-cat="inc_relacionado">INC relacionado</button>
             <button type="button" data-cat="visita_terreno">Visita terreno</button>
             <button type="button" data-cat="b_amarillo">B. amarillo</button>
             <button type="button" data-cat="escalado_soc">Escalado SOC</button>
             <button type="button" data-cat="envio_equipo">Envío de equipo</button>
-            <button type="button" data-cat="sin_datos">Sin datos aún</button>
+            <button type="button" data-cat="cambio_equipo">Cambio de equipo</button>
+            <button type="button" data-cat="config_equipo">Configuración de equipo</button>
+            <button type="button" data-cat="sin_datos">Otros</button>
           </div>
         </div>
 
@@ -171,7 +179,9 @@
       <button type="button" data-cat="b_amarillo">B. amarillo</button>
       <button type="button" data-cat="escalado_soc">Escalado SOC</button>
       <button type="button" data-cat="envio_equipo">Envío de equipo</button>
-      <button type="button" data-cat="sin_datos">Sin datos aún</button>
+      <button type="button" data-cat="cambio_equipo">Cambio de equipo</button>
+      <button type="button" data-cat="config_equipo">Configuración de equipo</button>
+      <button type="button" data-cat="sin_datos">Otros</button>
     </div>
   </div>
   <table class="ticker" id="tablaPendientes"></table>
@@ -194,10 +204,10 @@
     <div class="modal-cliente" id="modalCliente"></div>
     <div class="modal-notas" id="modalNotas" style="display:none;"></div>
     <div class="modal-actions">
-      <button class="btn primary" id="modalBtnDoc">Marcar documentado</button>
+      <button class="btn primary" id="modalBtnDoc">Cerrar el caso</button>
       <button class="btn" id="modalBtnPosponer">Posponer 30 min</button>
       <button class="btn" id="modalBtnResched">Reprogramar</button>
-      <button class="btn" id="modalBtnEnviar">Enviar aviso ahora</button>
+      <button class="btn" id="modalBtnEnviar">Enviar a Telegram</button>
       <button class="btn ghost" id="modalBtnCerrar">Cerrar</button>
     </div>
     <div class="modal-resched" id="modalResched" style="display:none;">
@@ -233,12 +243,15 @@
     <div class="field-row">
       <div class="field"><label for="edCategoria">Tipo de caso</label>
         <select id="edCategoria">
+          <option value="" disabled>Selecciona un tipo…</option>
           <option value="inc_relacionado">INC relacionado</option>
           <option value="visita_terreno">Visita terreno</option>
           <option value="b_amarillo">B. amarillo</option>
           <option value="escalado_soc">Escalado SOC</option>
           <option value="envio_equipo">Envío de equipo</option>
-          <option value="sin_datos">Sin datos aún</option>
+          <option value="cambio_equipo">Cambio de equipo</option>
+          <option value="config_equipo">Configuración de equipo</option>
+          <option value="sin_datos">Otros</option>
         </select>
       </div>
     </div>
@@ -311,11 +324,24 @@
     b_amarillo:      "B. amarillo",
     escalado_soc:    "Escalado SOC",
     envio_equipo:    "Envío de equipo",
-    sin_datos:       "Sin datos aún"
+    cambio_equipo:   "Cambio de equipo",
+    config_equipo:   "Configuración de equipo",
+    sin_datos:       "Otros"
+  };
+  const ICONOS_CATEGORIA = {
+    inc_relacionado: "👥",
+    visita_terreno:  "✈️",
+    b_amarillo:      "🟡",
+    escalado_soc:    "🦠",
+    envio_equipo:    "📦",
+    cambio_equipo:   "♻️",
+    config_equipo:   "⚙️",
+    sin_datos:       "❓"
   };
   // pedidos creados antes del cambio de categorías: solo para que se sigan viendo bien
   const CATEGORIAS_ANTIGUAS = { wan_lan: "WAN / LAN (antiguo)", ids: "Investigación IDS (antiguo)", no_identificada: "No identificada (antiguo)" };
   function nombreCategoria(cat){ return CATEGORIAS[cat] || CATEGORIAS_ANTIGUAS[cat] || cat || "—"; }
+  function iconoCategoria(cat){ return ICONOS_CATEGORIA[cat] || "•"; }
   const SNOOZE_MIN = 30;
 
   let pedidos = [];          // caché local, alimentada por onSnapshot
@@ -629,12 +655,14 @@
   }
 
   // ---------- categorías: tabs del formulario y del filtro ----------
-  let categoriaForm = "inc_relacionado";
+  // sin preseleccionar ninguna: el usuario debe elegir el tipo real de cada pedido
+  let categoriaForm = null;
   document.querySelectorAll("#catTabsForm button").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       document.querySelectorAll("#catTabsForm button").forEach(b=> b.classList.remove("active"));
       btn.classList.add("active");
       categoriaForm = btn.dataset.cat;
+      limpiarEstadoForm();
     });
   });
   document.querySelectorAll("#catTabsFiltro button").forEach(btn=>{
@@ -660,6 +688,11 @@
     const fH = document.getElementById("pFinH").value, fM = document.getElementById("pFinM").value;
 
     if (!titulo || !dia){ mostrarEstadoForm("⛔ Completa el pedido y la fecha.", "err"); return; }
+    if (!categoriaForm){ mostrarEstadoForm("⛔ Selecciona el tipo de caso antes de guardar.", "err"); return; }
+
+    // mismo número de pedido ya agendado (pendiente, no documentado todavía)
+    const yaExiste = pedidos.some(p => p.estado !== "documentado" && (p.titulo||"").trim().toLowerCase() === titulo.toLowerCase());
+    if (yaExiste){ mostrarEstadoForm("⛔ Ya existe un pedido \"" + titulo + "\" agendado y sin cerrar.", "err"); return; }
 
     let inicio = construirFechaHora(dia, iH, iM, dia);
     let fin = construirFechaHora(dia, fH, fM, dia);
@@ -677,6 +710,9 @@
       });
       e.target.reset();
       document.getElementById("pFechaDia").value = new Date().toISOString().slice(0,10);
+      // ningún tipo de caso queda marcado: fuerza a elegir de nuevo en el próximo pedido
+      document.querySelectorAll("#catTabsForm button").forEach(b=> b.classList.remove("active"));
+      categoriaForm = null;
       mostrarEstadoForm("✔ Ingresado correctamente.", "ok");
       toast("Pedido agregado.", "ok");
     }catch(err){ mostrarEstadoForm("⛔ No se pudo guardar: " + err.message, "err"); toast("No se pudo guardar: " + err.message, "err"); }
@@ -788,7 +824,7 @@
     document.getElementById("edTitulo").value = p.titulo || "";
     document.getElementById("edCliente").value = p.cliente || "";
     document.getElementById("edNotas").value = p.notas || "";
-    document.getElementById("edCategoria").value = p.categoria || "inc_relacionado";
+    document.getElementById("edCategoria").value = p.categoria || "";
     const y = ini.getFullYear(), m = String(ini.getMonth()+1).padStart(2,"0"), d = String(ini.getDate()).padStart(2,"0");
     document.getElementById("edFecha").value = y + "-" + m + "-" + d;
     document.getElementById("edInicioH").value = String(ini.getHours()).padStart(2,"0");
@@ -807,7 +843,12 @@
     if (!editandoId) return;
     const titulo = document.getElementById("edTitulo").value.trim();
     const dia = document.getElementById("edFecha").value;
+    const edCategoriaVal = document.getElementById("edCategoria").value;
     if (!titulo || !dia){ mostrarEstadoEditor("⛔ El pedido y la fecha son obligatorios.", "err"); return; }
+    if (!edCategoriaVal){ mostrarEstadoEditor("⛔ Selecciona el tipo de caso antes de guardar.", "err"); return; }
+
+    const yaExiste = pedidos.some(p => p.id !== editandoId && p.estado !== "documentado" && (p.titulo||"").trim().toLowerCase() === titulo.toLowerCase());
+    if (yaExiste){ mostrarEstadoEditor("⛔ Ya existe otro pedido \"" + titulo + "\" agendado y sin cerrar.", "err"); return; }
 
     let inicio = construirFechaHora(dia, document.getElementById("edInicioH").value, document.getElementById("edInicioM").value, dia);
     let fin = construirFechaHora(dia, document.getElementById("edFinH").value, document.getElementById("edFinM").value, dia);
@@ -858,7 +899,7 @@
     const actions = tr.querySelector(".actions");
     if (p.estado !== "documentado"){
       const btnDoc = document.createElement("button");
-      btnDoc.className = "btn small"; btnDoc.textContent = "Marcar documentado";
+      btnDoc.className = "btn small"; btnDoc.textContent = "Cerrar el caso";
       btnDoc.addEventListener("click", ()=> marcarDocumentado(p.id));
       actions.appendChild(btnDoc);
 
@@ -873,7 +914,7 @@
       actions.appendChild(btnPos);
 
       const btnEnv = document.createElement("button");
-      btnEnv.className = "btn small"; btnEnv.textContent = "Enviar ahora";
+      btnEnv.className = "btn small"; btnEnv.textContent = "Enviar a Telegram";
       btnEnv.addEventListener("click", async ()=>{
         if (configCanal.canal === "web"){ toast("Canal en \"Solo Web\".", "err"); return; }
         btnEnv.disabled = true;
@@ -914,6 +955,7 @@
     } else documentados.forEach(p=> tDone.appendChild(filaPedido(p)));
 
     renderResumen(todosPendientes);
+    renderSemaforo(todosPendientes);
     renderConteoTipos(todosPendientes);
     renderBannerSobrecarga(todosPendientes);
   }
@@ -926,6 +968,28 @@
     document.getElementById("statProximos").textContent = pendientes.length - paraHoy.length;
   }
 
+  // rojo: vencidos (sobre la hora), incluidos los pospuestos que ya pasaron su hora límite
+  // verde: todavía no entran en zona de alerta (de hoy, faltan más de 30 min)
+  // azul: programados para otro día (futuro, o quedaron atrás sin cerrar en un día anterior)
+  function colorSemaforo(p){
+    const minR = (new Date(p.horaFin).getTime() - Date.now()) / 60000;
+    const esHoy = mismoDia(p.horaFin, new Date());
+    if (minR <= 0) return "rojo"; // vencido ya sea de hoy o de un día anterior; se cuenta igual si está pospuesto
+    if (!esHoy) return "azul";
+    if (minR <= UMBRAL_VERDE_MIN) return "rojo"; // dentro de zona de alerta de hoy: se destaca en rojo
+    return "verde";
+  }
+  function renderSemaforo(pendientes){
+    let r=0, v=0, a=0;
+    pendientes.forEach(p=>{
+      const c = colorSemaforo(p);
+      if (c==="rojo") r++; else if (c==="verde") v++; else a++;
+    });
+    document.getElementById("semRojo").textContent = r;
+    document.getElementById("semVerde").textContent = v;
+    document.getElementById("semAzul").textContent = a;
+  }
+
   function renderConteoTipos(pendientes){
     const cont = document.getElementById("conteoTipos");
     cont.innerHTML = "";
@@ -936,8 +1000,9 @@
       const chip = document.createElement("span");
       chip.className = "chip tipo-" + cat + (delTipo.length === 0 ? " vacio" : "");
 
-      const dot = document.createElement("span"); dot.className = "dot-mini";
-      chip.appendChild(dot);
+      const ico = document.createElement("span"); ico.className = "icono-cat";
+      ico.textContent = iconoCategoria(cat);
+      chip.appendChild(ico);
 
       const txt = document.createElement("span");
       txt.textContent = CATEGORIAS[cat];
