@@ -9,6 +9,20 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.92em'%20font-size='92'%3E%F0%9F%98%B1%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles.css">
+<style>
+/* === Incidencias que llegan por correo (sin programar) === */
+.sirenas{ display:inline-flex; gap:1px; font-size:15px; line-height:1; animation: sirena-pulso .6s ease-in-out infinite alternate; filter: drop-shadow(0 0 5px #ff3b30); }
+.sirenas span:nth-child(2){ animation: sirena-giro .6s ease-in-out infinite alternate-reverse; }
+@keyframes sirena-pulso{ from{ transform: scale(.9); filter: drop-shadow(0 0 3px #ff3b30); } to{ transform: scale(1.2); filter: drop-shadow(0 0 9px #3b82ff); } }
+@keyframes sirena-giro{ from{ transform: rotate(-12deg); } to{ transform: rotate(12deg); } }
+table.ticker tr.row.sin-programar{ background: rgba(232,105,93,.14) !important; animation: fila-alarma 1.2s ease-in-out infinite; }
+@keyframes fila-alarma{ 0%,100%{ box-shadow: inset 3px 0 0 #E8695D; } 50%{ box-shadow: inset 3px 0 0 #3b82ff, 0 0 14px rgba(232,105,93,.35); } }
+.badge.sirena{ color:#fff; background:#c0392b; border-color:#ff6b5e; font-weight:600; animation: semaforo-blink 1s ease-in-out infinite; }
+.semaforo-item.sirena .sirenas{ font-size:13px; }
+.modal-box.nivel-llegada{ border-color:#E8695D; box-shadow: 0 0 0 2px rgba(232,105,93,.5), 0 0 40px rgba(232,105,93,.45); }
+.modal-box.nivel-llegada .modal-eta{ color:#fff; background:#c0392b; }
+@media (prefers-reduced-motion: reduce){ .sirenas, .sirenas span, table.ticker tr.row.sin-programar, .badge.sirena{ animation:none; } }
+</style>
 </head>
 <body>
 
@@ -38,6 +52,7 @@
     <span class="semaforo-item rojo"><span class="semaforo-dot"></span><span class="semaforo-num" id="semRojo">0</span></span>
     <span class="semaforo-item verde"><span class="semaforo-dot"></span><span class="semaforo-num" id="semVerde">0</span></span>
     <span class="semaforo-item azul"><span class="semaforo-dot"></span><span class="semaforo-num" id="semAzul">0</span></span>
+    <span class="semaforo-item sirena" title="Incidencias llegadas por correo, sin hora asignada"><span class="sirenas"><span>🚨</span></span><span class="semaforo-num" id="semSirena">0</span></span>
   </div>
 
   <div class="conteo-tipos" id="conteoTipos"></div>
@@ -182,6 +197,7 @@
       <button type="button" data-cat="cambio_equipo">Cambio de equipo</button>
       <button type="button" data-cat="config_equipo">Configuración de equipo</button>
       <button type="button" data-cat="sin_datos">Otros</button>
+      <button type="button" data-cat="incidencia_helix">🚨 Sin programar</button>
     </div>
   </div>
   <table class="ticker" id="tablaPendientes"></table>
@@ -204,6 +220,7 @@
     <div class="modal-cliente" id="modalCliente"></div>
     <div class="modal-notas" id="modalNotas" style="display:none;"></div>
     <div class="modal-actions">
+      <button class="btn primary" id="modalBtnAsignar" style="display:none;">Asignar tipo y hora</button>
       <button class="btn" id="modalBtnPosponer">Posponer 30 min</button>
       <button class="btn" id="modalBtnResched">Reprogramar</button>
       <button class="btn" id="modalBtnEnviar">Enviar a Telegram</button>
@@ -337,6 +354,8 @@
     config_equipo:   "Configuración de equipo",
     sin_datos:       "Otros"
   };
+  // categoría con la que entran los correos de Helix; al asignarles hora se elige un tipo real
+  CATEGORIAS.incidencia_helix = "Incidencia Helix (sin programar)";
   const ICONOS_CATEGORIA = {
     inc_relacionado: "👥",
     visita_terreno:  "✈️",
@@ -345,7 +364,8 @@
     envio_equipo:    "📦",
     cambio_equipo:   "♻️",
     config_equipo:   "⚙️",
-    sin_datos:       "❓"
+    sin_datos:       "❓",
+    incidencia_helix:"🚨"
   };
   // pedidos creados antes del cambio de categorías: solo para que se sigan viendo bien
   const CATEGORIAS_ANTIGUAS = { wan_lan: "WAN / LAN (antiguo)", ids: "Investigación IDS (antiguo)", no_identificada: "No identificada (antiguo)" };
@@ -380,6 +400,7 @@
   }
   function estadoTexto(p){
     if (p.estado === 'documentado') return { label: 'Documentado', cls: 'done' };
+    if (p.sinProgramar) return { label: 'Sin programar', cls: 'sirena' };
     const minR = (new Date(p.horaFin).getTime() - Date.now()) / 60000;
     const minInicio = (new Date(p.horaInicio).getTime() - Date.now()) / 60000;
     if (minR <= 0) return { label: 'Vencido', cls: 'venc' };
@@ -507,6 +528,32 @@
     const rep = (nivel==="rojo"||nivel==="fin") ? 4 : (nivel==="amarillo" ? 3 : 2);
     for (let i=0;i<rep;i++){ const t0=ahora+i*0.4; tocarTono(ctx,t0,880,0.6,0.22); tocarTono(ctx,t0,1318.5,0.6,0.13); }
   }
+  // sirena larga para incidencias que llegan por correo (SIRENA_SEG segundos, sube y baja de tono)
+  const SIRENA_SEG = 12;
+  let sirenaActual = null;
+  function detenerSirena(){
+    if (!sirenaActual) return;
+    try{ sirenaActual.gain.gain.cancelScheduledValues(0); sirenaActual.gain.gain.setValueAtTime(0.0001, sirenaActual.ctx.currentTime); sirenaActual.osc.stop(); }catch(e){}
+    sirenaActual = null;
+  }
+  function sonarSirena(){
+    if (!sonidoActivo) return;
+    const ctx = obtenerAudioCtx(); if (!ctx) return;
+    detenerSirena();
+    const t0 = ctx.currentTime, osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = "sawtooth";
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.16, t0 + 0.1);
+    gain.gain.setValueAtTime(0.16, t0 + SIRENA_SEG - 0.6);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + SIRENA_SEG);
+    for (let t = 0, alto = false; t < SIRENA_SEG; t += 0.75, alto = !alto){
+      osc.frequency.linearRampToValueAtTime(alto ? 640 : 1050, t0 + t + 0.75);
+    }
+    osc.frequency.setValueAtTime(640, t0);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(t0); osc.stop(t0 + SIRENA_SEG + 0.05);
+    sirenaActual = { osc, gain, ctx };
+  }
   document.getElementById("btnProbarSonido").addEventListener("click", ()=>{
     if (!sonidoActivo){ toast("Activa la casilla de sonido.", "err"); return; }
     sonarCampana("verde");
@@ -609,7 +656,8 @@
     const ini = fmtFecha(p.horaInicio), fin = fmtFecha(p.horaFin);
     let t = (etiqueta ? etiqueta + " " : "") + "Pedido: " + p.titulo + " [" + (nombreCategoria(p.categoria)) + "]";
     if (p.cliente) t += " — " + p.cliente;
-    t += "\nVentana: " + ini.hora + " a " + fin.hora + " (" + fin.fecha + ")";
+    if (p.sinProgramar) t += "\nSin programar — llegó a las " + ini.hora + " (" + ini.fecha + ")";
+    else t += "\nVentana: " + ini.hora + " a " + fin.hora + " (" + fin.fecha + ")";
     if (p.notas) t += "\nNotas: " + p.notas;
     return t;
   }
@@ -746,7 +794,7 @@
     try{
       const datos = {
         horaFin: new Date(timestampMs).toISOString(),
-        snoozeHasta: null,
+        snoozeHasta: null, sinProgramar: false,
         alertVerde:false, alertAmarillo:false, alertRojo:false, alertFin:false
       };
       if (inicioMs){ datos.horaInicio = new Date(inicioMs).toISOString(); datos.alertInicio = false; }
@@ -830,7 +878,13 @@
   function abrirEditor(p){
     editandoId = p.id;
     limpiarEstadoEditor();
-    const ini = new Date(p.horaInicio), fin = new Date(p.horaFin);
+    let ini = new Date(p.horaInicio), fin = new Date(p.horaFin);
+    if (p.sinProgramar){
+      // propuesta: empieza en el próximo múltiplo de 10 min y dura 1 hora
+      ini = new Date(Math.ceil((Date.now() + 60000) / 600000) * 600000);
+      fin = new Date(ini.getTime() + 60*60000);
+      mostrarEstadoEditor("🚨 Elige el tipo de caso y la hora: al guardar se activan los avisos normales.", "ok");
+    }
     document.getElementById("edTituloCabecera").textContent = p.titulo;
     document.getElementById("edTitulo").value = p.titulo || "";
     document.getElementById("edCliente").value = p.cliente || "";
@@ -874,7 +928,7 @@
         categoria: document.getElementById("edCategoria").value,
         horaInicio: inicio.toISOString(),
         horaFin: fin.toISOString(),
-        snoozeHasta: null,
+        snoozeHasta: null, sinProgramar: false,
         alertInicio:false, alertVerde:false, alertAmarillo:false, alertRojo:false, alertFin:false
       });
       limpiarDedupLocal(editandoId);
@@ -889,10 +943,13 @@
     const ini = fmtFecha(p.horaInicio), fin = fmtFecha(p.horaFin);
     const est = estadoTexto(p);
     const tr = document.createElement("tr");
-    tr.className = "row";
+    const sinProg = !!p.sinProgramar && p.estado !== "documentado";
+    tr.className = "row" + (sinProg ? " sin-programar" : "");
     tr.innerHTML =
-      '<td class="sem"><span class="row-dot"></span></td>' +
-      '<td class="when mono"><div class="date">' + fin.fecha + '</div><div class="time">' + ini.hora + '–' + fin.hora + '</div></td>' +
+      '<td class="sem">' + (sinProg ? '<span class="sirenas" title="Llegó por correo, sin hora asignada"><span>🚨</span><span>🚨</span><span>🚨</span></span>' : '<span class="row-dot"></span>') + '</td>' +
+      '<td class="when mono">' + (sinProg
+        ? '<div class="date">llegó ' + ini.fecha + '</div><div class="time">' + ini.hora + '</div>'
+        : '<div class="date">' + fin.fecha + '</div><div class="time">' + ini.hora + '–' + fin.hora + '</div>') + '</td>' +
       '<td class="info"><div class="titulo"></div><div class="cat"></div>' +
         (p.cliente ? '<div class="cliente"></div>' : '') + (p.notas ? '<div class="notas"></div>' : '') + '</td>' +
       '<td class="catIcon" title="' + nombreCategoria(p.categoria) + '"></td>' +
@@ -902,10 +959,10 @@
     tr.querySelector(".cat").textContent = nombreCategoria(p.categoria);
     tr.querySelector(".catIcon").textContent = iconoCategoria(p.categoria);
     // semáforo intermitente por pedido: igual al resumen, pero para este pedido puntual
-    if (p.estado !== "documentado"){
-      tr.querySelector(".row-dot").classList.add(colorSemaforo(p));
-    } else {
-      tr.querySelector(".row-dot").classList.add("apagado");
+    const dotFila = tr.querySelector(".row-dot");
+    if (dotFila){
+      if (p.estado !== "documentado") dotFila.classList.add(colorSemaforo(p));
+      else dotFila.classList.add("apagado");
     }
     if (enSnooze(p)){
       const av = document.createElement("div");
@@ -918,13 +975,15 @@
 
     const actions = tr.querySelector(".actions");
     if (p.estado !== "documentado"){
-      const btnPos = document.createElement("button");
-      btnPos.className = "btn small"; btnPos.textContent = "Posponer 30 min";
-      btnPos.addEventListener("click", ()=> posponer15min(p.id));
-      actions.appendChild(btnPos);
+      if (!sinProg){
+        const btnPos = document.createElement("button");
+        btnPos.className = "btn small"; btnPos.textContent = "Posponer 30 min";
+        btnPos.addEventListener("click", ()=> posponer15min(p.id));
+        actions.appendChild(btnPos);
+      }
 
       const btnEdit = document.createElement("button");
-      btnEdit.className = "btn small"; btnEdit.textContent = "Editar";
+      btnEdit.className = "btn small" + (sinProg ? " primary" : ""); btnEdit.textContent = sinProg ? "Asignar tipo y hora" : "Editar";
       btnEdit.addEventListener("click", ()=> abrirEditor(p));
       actions.appendChild(btnEdit);
 
@@ -958,7 +1017,7 @@
   }
 
   function render(){
-    const todosPendientes = pedidos.filter(p=>p.estado!=="documentado").sort((a,b)=> new Date(a.horaFin)-new Date(b.horaFin));
+    const todosPendientes = pedidos.filter(p=>p.estado!=="documentado").sort((a,b)=> (!!b.sinProgramar - !!a.sinProgramar) || (new Date(a.horaFin)-new Date(b.horaFin)));
     const pendientes = filtroCategoria==="todas" ? todosPendientes : todosPendientes.filter(p=>p.categoria===filtroCategoria);
     const documentados = pedidos.filter(p=>p.estado==="documentado").sort((a,b)=> new Date(b.horaFin)-new Date(a.horaFin));
 
@@ -974,18 +1033,20 @@
       const tr=document.createElement("tr"); tr.innerHTML='<td class="empty">Todavía no hay pedidos documentados.</td>'; tDone.appendChild(tr);
     } else documentados.forEach(p=> tDone.appendChild(filaPedido(p)));
 
-    renderResumen(todosPendientes);
-    renderSemaforo(todosPendientes);
+    const programados = todosPendientes.filter(p=> !p.sinProgramar);
+    renderResumen(todosPendientes, programados);
+    renderSemaforo(programados);
+    document.getElementById("semSirena").textContent = todosPendientes.length - programados.length;
     renderConteoTipos(todosPendientes);
-    renderBannerSobrecarga(todosPendientes);
+    renderBannerSobrecarga(programados);
   }
 
-  function renderResumen(pendientes){
+  function renderResumen(pendientes, programados){
     const hoy = new Date();
-    const paraHoy = pendientes.filter(p=> mismoDia(p.horaFin, hoy));
+    const paraHoy = programados.filter(p=> mismoDia(p.horaFin, hoy));
     document.getElementById("statTotal").textContent = pendientes.length;
     document.getElementById("statHoy").textContent = paraHoy.length;
-    document.getElementById("statProximos").textContent = pendientes.length - paraHoy.length;
+    document.getElementById("statProximos").textContent = programados.length - paraHoy.length;
   }
 
   // rojo: vencidos (sobre la hora), incluidos los pospuestos que ya pasaron su hora límite
@@ -1088,7 +1149,8 @@
     verde:   { clase:"nivel-verde",   etiqueta:"🟢 30 min antes — preparación" },
     amarillo:{ clase:"nivel-amarillo",etiqueta:"🟡 15 min antes — advertencia" },
     rojo:    { clase:"nivel-rojo",    etiqueta:"🔴 5 min antes — entrega urgente" },
-    fin:     { clase:"nivel-fin",     etiqueta:"🔴 Hora límite alcanzada" }
+    fin:     { clase:"nivel-fin",     etiqueta:"🔴 Hora límite alcanzada" },
+    llegada: { clase:"nivel-llegada", etiqueta:"🚨🚨🚨 NUEVA INCIDENCIA — sin programar" }
   };
 
   function encolarModal(pedidoId, nivel, esRecordatorio){
@@ -1096,6 +1158,7 @@
     if (!modalAbierto) mostrarSiguienteModal();
   }
   function mostrarSiguienteModal(){
+    detenerSirena();
     if (colaModal.length===0){ modalAbierto=null; modalBackdrop.classList.remove("show"); detenerAvisoPestana(); return; }
     const item = colaModal.shift();
     const p = pedidos.find(x=>x.id===item.pedidoId);
@@ -1112,6 +1175,10 @@
     modalQueue.textContent = colaModal.length>0 ? ("Hay " + colaModal.length + " aviso(s) más en cola.") : "";
     document.getElementById("modalBtnEnviar").style.display = (configCanal.canal==="web") ? "none":"inline-block";
     document.getElementById("modalResched").style.display = "none";
+    const esLlegada = item.nivel === "llegada";
+    document.getElementById("modalBtnAsignar").style.display = esLlegada ? "inline-block" : "none";
+    document.getElementById("modalBtnPosponer").style.display = esLlegada ? "none" : "inline-block";
+    document.getElementById("modalBtnResched").style.display = esLlegada ? "none" : "inline-block";
     const fIni = new Date(p.horaInicio), fLim = new Date(p.horaFin);
     document.getElementById("reFecha").value = fLim.getFullYear() + "-" + String(fLim.getMonth()+1).padStart(2,"0") + "-" + String(fLim.getDate()).padStart(2,"0");
     document.getElementById("reInicioH").value = String(fIni.getHours()).padStart(2,"0");
@@ -1121,6 +1188,12 @@
     modalBackdrop.classList.add("show");
   }
   document.getElementById("modalBtnCerrar").addEventListener("click", mostrarSiguienteModal);
+  document.getElementById("modalBtnAsignar").addEventListener("click", ()=>{
+    const id = modalAbierto && modalAbierto.pedidoId;
+    mostrarSiguienteModal();
+    const p = pedidos.find(x=>x.id===id);
+    if (p) abrirEditor(p);
+  });
   document.getElementById("modalBtnDoc").addEventListener("click", ()=>{ if (modalAbierto) marcarDocumentado(modalAbierto.pedidoId); mostrarSiguienteModal(); });
   document.getElementById("modalBtnPosponer").addEventListener("click", ()=>{ if (modalAbierto) posponer15min(modalAbierto.pedidoId); mostrarSiguienteModal(); });
   document.getElementById("modalBtnResched").addEventListener("click", ()=>{ const el=document.getElementById("modalResched"); el.style.display = el.style.display==="none"?"block":"none"; });
@@ -1163,6 +1236,22 @@
     const ahora = Date.now();
     pedidos.forEach(p=>{
       if (p.estado === "documentado") return;
+
+      // --- llegó por correo y aún no tiene hora: sirena larga, sin semáforo ---
+      if (p.sinProgramar){
+        if (p.alertLlegada) return;
+        const claveLlegada = p.id + "-llegada";
+        if (avisadoLocalSesion.has(claveLlegada)) return;
+        avisadoLocalSesion.add(claveLlegada);
+        encolarModal(p.id, "llegada");
+        sonarSirena();
+        lanzarNotifNav("🚨 Nueva incidencia", p.titulo + (p.notas ? " — " + p.notas : ""));
+        activarAvisoPestana("llegada", "🚨 NUEVA INCIDENCIA · " + p.titulo);
+        marcarEnvioUnaVez(p.id, "alertLlegada").then(gane=>{
+          if (gane && configCanal.canal !== "web") enviarMensajeExterno(textoAviso(p, "🚨 Nueva incidencia"));
+        });
+        return;
+      }
 
       // --- pospuesto: silencio total hasta que se cumpla el plazo ---
       if (p.snoozeHasta){
